@@ -174,7 +174,7 @@ Evaluación de las 18 preguntas contra el servicio en la nube, con Groq, Gemini 
 | Preguntas resueltas por el agente con LLM | 17 / 18 (la del Mundial se rechaza sin llamar al LLM) |
 | Tiempo promedio por pregunta | 4.1 s |
 | Avisos de la verificación | 0 |
-| Pruebas automáticas | 153: 131 con LLM simulado y 22 contra un Neo4j local |
+| Pruebas automáticas | 154: 132 con LLM simulado y 22 contra un Neo4j local |
 
 Pruebas de funcionamiento:
 
