@@ -27,6 +27,7 @@ from herramientas import Contexto
 from llm import SinModelos, texto_de
 
 NO_ENCONTRE = "No encontré esa información en el grafo ni en los documentos del corpus."
+RECORDATORIO = "Tu respuesta no se apoya en evidencia."
 PRESENTACION = ("Soy el agente de Enterprise Brain Glaciares. Respondo sobre glaciares, lagunas glaciares y riesgo de desborde en el "
                 "Perú, con citas de los 398 documentos del INAIGEM, la ANA y el SENAMHI. Por ejemplo: «¿Qué lagunas de Áncash "
                 "tienen riesgo muy alto?» o «¿Por qué la laguna Palcacocha es peligrosa?».")
@@ -99,12 +100,28 @@ class Agente:
             self.log(f"Guardia sin similitud: {str(e)[:120]}")
         return {}
 
+    def _mensajes_llm(self, mensajes):
+        """Lo que recibe el LLM: los resultados de las herramientas como texto, no como llamadas nativas de un proveedor.
+        Así otro modelo puede seguir a mitad de pregunta (Gemini rechaza el historial de llamadas de Groq) y se gastan menos tokens."""
+        salida, resultados = [SystemMessage(self.sistema)], []
+        for m in mensajes:
+            if isinstance(m, ToolMessage):
+                resultados.append(f"### {m.name}\n{m.content}")
+            elif not (isinstance(m, AIMessage) and m.tool_calls):
+                salida.append(m)
+        if not resultados:
+            return salida
+        pos = max(i for i, m in enumerate(salida) if isinstance(m, HumanMessage) and not m.content.startswith(RECORDATORIO))
+        salida[pos] = HumanMessage(salida[pos].content + "\n\nRESULTADOS DE LAS HERRAMIENTAS QUE YA EJECUTASTE:\n\n" + "\n\n".join(resultados) +
+                                   "\n\nSi la evidencia alcanza, responde citando con [n]. Si falta algo, llama otra herramienta.")
+        return salida
+
     def agente(self, s):
         ctx = s["ctx"]
         if time.time() >= s["fecha_limite"]:
             return {"falla": "se acabó el tiempo de la pregunta"}
         try:
-            r = self.cadena.invocar([SystemMessage(self.sistema)] + s["messages"], self.caja.herramientas, s["fecha_limite"])
+            r = self.cadena.invocar(self._mensajes_llm(s["messages"]), self.caja.herramientas, s["fecha_limite"])
         except SinModelos as e:
             return {"falla": str(e)}
         ctx.pasos.append({"tipo": "decision", "modelo": self.cadena.ultimo, "herramientas": [c["name"] for c in r.tool_calls]})
@@ -145,7 +162,7 @@ class Agente:
             if s.get("recordatorios", 0) == 0:   # respondió de memoria: se le pide evidencia una vez
                 ctx.pasos.append({"tipo": "verificacion", "resultado": "respondió sin evidencia; se le pide usar herramientas"})
                 return {"recordatorios": 1,
-                        "messages": [HumanMessage("Tu respuesta no se apoya en evidencia. Usa una herramienta o responde exactamente: " + NO_ENCONTRE)]}
+                        "messages": [HumanMessage(RECORDATORIO + " Usa una herramienta o responde exactamente: " + NO_ENCONTRE)]}
             ctx.pasos.append({"tipo": "verificacion", "resultado": "sin evidencia: no se muestra esa respuesta"})
             return {"respuesta": NO_ENCONTRE, "modo": "agente", "avisos": []}
         avisos = GR.verificar(respuesta, ctx.fuentes, "\n".join(ctx.bloques))
@@ -272,7 +289,8 @@ class Agente:
 
     def _resultado(self, s, segundos):
         ctx = s["ctx"]
-        respuesta = s.get("respuesta") or NO_ENCONTRE
+        # algunos modelos citan el resumen calculado de P9 como si fuera una fuente numerada
+        respuesta = re.sub(r"\s*\[RESUMEN[^\]]*\]", "", s.get("respuesta") or NO_ENCONTRE)
         citadas = sorted({int(x) for x in re.findall(r"\[(\d+)\]", respuesta) if 0 < int(x) <= len(ctx.fuentes)})
         usadas = [f for f in ctx.fuentes if f["n"] in citadas]
         docs = sorted({f["documento"] for f in usadas if f.get("documento")})

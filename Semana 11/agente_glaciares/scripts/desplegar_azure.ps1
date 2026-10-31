@@ -16,7 +16,7 @@ $rutaEnv = Join-Path (Split-Path $PSScriptRoot -Parent) ".env"
 if (-not (Test-Path $rutaEnv)) { throw "No encuentro $rutaEnv. Copia .env.example como .env y completa tus claves." }
 $valores = @{}
 foreach ($linea in Get-Content $rutaEnv -Encoding UTF8) {
-    if ($linea -match '^\s*([A-Z_]+)\s*=\s*(.+?)\s*$') { $valores[$Matches[1]] = $Matches[2].Trim('"', "'") }
+    if ($linea -match '^\s*([A-Z0-9_]+)\s*=\s*(.+?)\s*$') { $valores[$Matches[1]] = $Matches[2].Trim('"', "'") }
 }
 if (-not ($valores["GROQ_API_KEY"] -or $valores["GOOGLE_API_KEY"])) { throw "El .env necesita GROQ_API_KEY o GOOGLE_API_KEY." }
 

@@ -3,8 +3,7 @@
 import os
 from dataclasses import dataclass, field
 
-MODELOS_POR_DEFECTO = ("groq:openai/gpt-oss-120b,groq:llama-3.3-70b-versatile,groq:openai/gpt-oss-20b,"
-                       "gemini:gemini-flash-latest,gemini:gemini-2.5-flash,gemini:gemini-flash-lite-latest")
+MODELOS_POR_DEFECTO = "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,gemini:gemini-flash-lite-latest,gemini:gemini-flash-latest"
 CARPETA_BASE = os.path.dirname(os.path.abspath(__file__))
 
 

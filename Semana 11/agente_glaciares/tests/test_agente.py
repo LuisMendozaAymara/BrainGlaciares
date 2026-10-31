@@ -6,7 +6,7 @@ import time
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from agente import NO_ENCONTRE, PRESENTACION
-from conftest import llamar, pide
+from conftest import LLMGuionado, llamar, pide
 from llm import CadenaModelos, SinModelos, descanso_para, texto_de
 
 P2 = llamar("consulta_verificada", consulta_id="P2", departamento="Áncash", nivel="Muy alto")
@@ -18,9 +18,19 @@ def test_ciclo_completo_con_cita(armar):
     assert r["modo"] == "agente" and r["herramientas"] == ["consulta_verificada"]
     assert r["citadas"] == [1] and r["n_citas_grafo"] == 1 and r["avisos"] == []
     assert r["fuentes"][0]["citada"] and r["fuentes"][0]["url"].startswith("https://hdl.handle.net/")
-    # el LLM recibió el resultado de la herramienta en la segunda vuelta
+    # el LLM recibió el resultado de la herramienta en la segunda vuelta, como texto y sin llamadas de ningún proveedor
     segunda = llm.recibidos[1]
-    assert isinstance(segunda[0], SystemMessage) and isinstance(segunda[-1], ToolMessage) and "[1] (grafo)" in segunda[-1].content
+    assert isinstance(segunda[0], SystemMessage) and isinstance(segunda[-1], HumanMessage) and "[1] (grafo)" in segunda[-1].content
+    assert not any(isinstance(m, ToolMessage) or getattr(m, "tool_calls", None) for m in segunda)
+
+
+def test_otro_proveedor_puede_seguir_a_mitad_de_pregunta(armar):
+    """Prueba real: Gemini rechazaba con 400 el historial de llamadas de Groq (thought_signature)."""
+    ag, (a, b) = armar([pide(P2), Exception("429 tokens per minute: try again in 1m30.5s")], [AIMessage(content="Palcacocha [1].")])
+    r = ag.responder("¿Qué lagunas de Áncash tienen riesgo muy alto?")
+    assert r["modo"] == "agente" and r["modelo"] == "falso1" and r["citadas"] == [1]
+    assert not any(isinstance(m, ToolMessage) or getattr(m, "tool_calls", None) for m in b.recibidos[0])
+    assert "[1] (grafo)" in b.recibidos[0][-1].content
 
 
 def test_varios_saltos_con_dos_herramientas(armar):
@@ -34,17 +44,17 @@ def test_varios_saltos_con_dos_herramientas(armar):
 def test_llamadas_paralelas_responden_a_cada_id(armar):
     a, b = llamar("buscar_entidad", nombre="Palcacocha"), llamar("buscar_entidad", nombre="Parón")
     ag, (llm,) = armar([pide(a, b), AIMessage(content=NO_ENCONTRE)])
-    ag.responder("¿Palcacocha y Parón son lagunas?")
-    herramientas = [m for m in llm.recibidos[1] if isinstance(m, ToolMessage)]
-    assert {m.tool_call_id for m in herramientas} == {a["id"], b["id"]}
+    r = ag.responder("¿Palcacocha y Parón son lagunas?")
+    assert r["herramientas"] == ["buscar_entidad", "buscar_entidad"]
+    assert llm.recibidos[1][-1].content.count("### buscar_entidad") == 2
 
 
 def test_exceso_de_llamadas_en_una_ronda_no_rompe_el_protocolo(armar, cfg):
     llamadas = [llamar("buscar_entidad", nombre=n) for n in ("Palcacocha", "Parón", "Llaca", "Safuna", "Rajucolta", "Artesa")]
     ag, (llm,) = armar([pide(*llamadas), AIMessage(content=NO_ENCONTRE)])
     r = ag.responder("varias lagunas Palcacocha")
-    respuestas = [m for m in llm.recibidos[1] if isinstance(m, ToolMessage)]
-    assert len(respuestas) == 6 and sum("No se ejecutó" in m.content for m in respuestas) == 2
+    texto = llm.recibidos[1][-1].content
+    assert texto.count("### buscar_entidad") == 6 and texto.count("No se ejecutó") == 2
     assert len(r["herramientas"]) == 4
 
 
@@ -167,6 +177,32 @@ def test_descansos():
     assert descanso_para(Exception("429 please try again in 7.5s")) == 8.5
     assert descanso_para(Exception("try again in 500ms")) == 2
     assert descanso_para(Exception("500")) == 30
+    assert descanso_para(Exception("rate limit TPM. Please try again in 1m30.5s")) == 91.5
+    assert descanso_para(Exception("tokens per day (TPD). Please try again in 2h5m")) == 3600   # tope de una hora
+    assert descanso_para(Exception("tokens per day (TPD). Please try again in 5m")) == 301
+
+
+def test_espera_breve_si_todos_descansan_y_uno_vuelve_pronto():
+    t, dormido = [0.0], []
+    llm = LLMGuionado([Exception("429 try again in 5s"), AIMessage(content="hola")])
+    c = CadenaModelos([("a", llm)], log=lambda m: None, reloj=lambda: t[0], dormir=lambda s: (dormido.append(s), t.__setitem__(0, t[0] + s)))
+    try:
+        c.invocar("x")
+    except SinModelos:
+        pass
+    assert c.invocar("x").content == "hola" and dormido == [6.0]
+
+
+def test_no_espera_si_el_descanso_es_largo():
+    t, dormido = [0.0], []
+    llm = LLMGuionado([Exception("500 error")])
+    c = CadenaModelos([("a", llm)], log=lambda m: None, reloj=lambda: t[0], dormir=dormido.append)
+    for _ in range(2):
+        try:
+            c.invocar("x")
+        except SinModelos:
+            pass
+    assert not dormido and len(llm.recibidos) == 1
 
 
 def test_cadena_sin_modelos_avisa_sin_mencionar_cuotas():

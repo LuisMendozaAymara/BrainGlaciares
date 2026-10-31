@@ -84,24 +84,30 @@ Semana 11/
 
 | Comprobación | Estado | Resultado |
 |---|---|---|
-| Pruebas automáticas | ✅ | 141 pasan, 22 de ellas contra un Neo4j 5 real |
+| Agente con Groq, Gemini y Aura reales | ✅ | 7 preguntas en modo agente, con varias herramientas y citas; cambia de Groq a Gemini a mitad de pregunta cuando se agota la cuota |
+| Pruebas automáticas | ✅ | 144 pruebas: 122 con LLM simulado y 22 contra un Neo4j 5 local |
 | Consultas: Neo4j frente a Kùzu | ✅ | Mismas filas en las 18 consultas |
 | Escrituras en Neo4j y consultas lentas | ✅ | Rechazadas y cortadas |
 | Contenedor con 2 CPU y 4 GB | ✅ | Listo en 67 s · memoria de 1.4 a 1.8 GiB · 1 a 2 s por pregunta sin LLM |
 | Apagar Neo4j y volver a encenderlo en vivo | ✅ | Responde con Kùzu y regresa solo |
 | Página web en computador y celular | ✅ | Citas, enlaces y pasos funcionan; sin errores en consola |
 | Formato para RAGAS | ✅ | Mismas claves que `ragas_semana10.jsonl` |
-| **Respuestas redactadas con Groq o Gemini reales** | ⏳ | Sin claves durante el desarrollo: el ciclo se probó con un LLM simulado. **Se comprueba en el paso 3** |
-| **Conexión a tu instancia de Aura** | ⏳ | Se comprueba en el paso 3 |
 | GitHub Actions | ✅ | Pruebas en verde en un entorno limpio e imagen publicada |
 | **Azure y Cloud Run** | ⏳ | Necesitan tus cuentas; solo se revisó la sintaxis del script de Azure |
 | **Ejecutar la imagen final con modelo incluido y versiones fijadas** | ⏳ | Ya está construida, pero aún no se ha ejecutado. Se comprueba en el paso 5. El contenedor medido arriba tenía el modelo en un volumen |
 
-### Revisa esto: Aura y el CSV podrían no coincidir
+### Revisa esto: Aura y la copia del grafo no coinciden
 
-El [reporte de la semana 7](../Semana%207/grafo_glaciares/reporte_grafo.md) indica 37 264 relaciones, igual que `relaciones_antes_curaduria.csv`, mientras que `relaciones.csv` tiene 36 596.
-Si `comprobar_entorno.py` muestra 37 264, **Aura tiene el grafo sin curar y la copia en Kùzu el curado**, y las respuestas pueden variar según cuál esté activo (por ejemplo, P5 da 15 filas en el reporte de la semana 10 y 16 con el CSV).
-Para igualarlas: crea una instancia vacía y ejecuta `scripts/cargar_neo4j.py`. El script no escribe sobre una base que ya tenga datos.
+| Grafo | Nodos | Relaciones | P2: lagunas de Áncash con riesgo muy alto |
+|---|---|---|---|
+| Aura (revisado el 31 de octubre) | 13 638 | 35 374 | 4: sin Llaca |
+| `Semana 7/grafo_glaciares/*.csv` (copia en Kùzu) | 13 829 | 36 596 | 5: con Llaca |
+
+Aura tiene una curaduría posterior: ya no incluye como lagunas o glaciares entradas de ruido como "Región" o "Bolivia", y agrega propiedades como `nivel_reciente`. Pero también **perdió el nivel de riesgo de Llaca** y de lagunas como Taullicocha o Pacliashcocha, aunque los documentos catalogan a Llaca como de riesgo muy alto. 11 de las 18 consultas verificadas dan resultados distintos en cada grafo.
+
+- **Consecuencia:** las respuestas pueden cambiar si Aura se pausa y el agente pasa a la copia. Una pregunta directa sobre Llaca sí encuentra su riesgo en los documentos, pero P2 no la lista con Aura.
+- **Qué debe decidir el grupo:** si Llaca salió de Aura a propósito. Quien hizo la curaduría debe confirmarlo, porque P2 es una pregunta de competencia.
+- **Para igualar los grafos:** exporta la versión elegida a CSV y vuelve a construir la imagen. `scripts/cargar_neo4j.py` carga esos CSV en una instancia vacía y no escribe sobre una base que ya tenga datos.
 
 ---
 
@@ -232,6 +238,8 @@ py -3.12 evaluar_agente.py --url $URL --salida resultados
 ```
 
 Deja `respuestas_agente.csv`, `reporte_agente.md` y `ragas_semana11.jsonl`. Este último es la entrada para la evaluación integral de la siguiente semana. Para las 30 preguntas: `--banco banco_30.json`, una lista de `{"id", "tipo", "pregunta"}`.
+
+El plan gratuito de Groq admite 8 000 tokens por minuto y cada llamada usa de 3 000 a 5 500. Con varias preguntas seguidas el agente pasa a Gemini o espera unos segundos. Para que la evaluación use más Groq, agrega `--pausa 20`.
 
 ### Paso 7. Entrega
 
