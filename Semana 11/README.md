@@ -138,16 +138,15 @@ notepad .env
 
 La imagen ocupa cerca de 6 GB y construirla en un computador pide reservar 15 GB. GitHub Actions lo hace gratis y sin usar tu disco.
 
+La rama está en el fork [LuisMendozaAymara/BrainGlaciares](https://github.com/LuisMendozaAymara/BrainGlaciares), porque el repositorio del grupo solo admite escritura de su dueño. Cada cambio se sube así y vuelve a construir la imagen:
+
 ```powershell
-git checkout -b entrega-semana-11
-git add "Semana 11" .github/workflows/agente-imagen.yml
-git commit -m "feat: agregar agente con herramientas de Semana 11"
-git push -u origin entrega-semana-11
+git push fork entrega-semana-11
 ```
 
-1. En la pestaña **Actions** del repositorio, espera a que **Imagen del agente** termine en verde. Ejecuta las pruebas y publica la imagen.
-2. El dueño del repositorio (Edson) abre **Packages → brainglaciares-agente → Package settings → Change visibility** y la deja **Public**. No contiene claves, y sus datos son los mismos del repositorio público.
-3. Tu imagen se llama `ghcr.io/edsonperez7/brainglaciares-agente:latest`.
+1. En la pestaña [Actions del fork](https://github.com/LuisMendozaAymara/BrainGlaciares/actions), espera a que **Imagen del agente** termine en verde. Ejecuta las pruebas y publica la imagen.
+2. Entra a los [paquetes de tu perfil](https://github.com/LuisMendozaAymara?tab=packages), abre **brainglaciares-agente → Package settings → Change visibility** y déjala **Public**. No contiene claves, y sus datos son los mismos del repositorio público.
+3. Tu imagen se llama `ghcr.io/luismendozaaymara/brainglaciares-agente:latest`.
 
 <details>
 <summary>Alternativa: construirla en tu computador (15 GB libres)</summary>
@@ -197,7 +196,7 @@ La imagen es la misma en ambas opciones.
 3. Despliega. El script lee `.env` y guarda las claves como secretos de Azure:
 
    ```powershell
-   .\scripts\desplegar_azure.ps1 -Imagen ghcr.io/edsonperez7/brainglaciares-agente:latest
+   .\scripts\desplegar_azure.ps1 -Imagen ghcr.io/luismendozaaymara/brainglaciares-agente:latest
    ```
 
 Al final muestra la URL pública. Si Azure rechaza la región por una política de la suscripción, consulta las permitidas en *Directivas → Allowed resource deployment regions* del portal y agrega `-Region otra-region`.
@@ -238,7 +237,7 @@ Deja `respuestas_agente.csv`, `reporte_agente.md` y `ragas_semana11.jsonl`. Este
 
 1. Pega la URL pública en la primera celda de `semana11_agente_glaciares.ipynb` y ejecútalo en Colab para dejar las salidas guardadas.
 2. Agrega el notebook, la carpeta `resultados/` y, al final de este README, la URL y los resultados de `reporte_agente.md`.
-3. Sube los cambios y abre el PR de `entrega-semana-11`, como en las entregas anteriores.
+3. Sube los cambios con `git push fork entrega-semana-11` y abre el PR desde el fork hacia `EdsonPerez7/BrainGlaciares`.
 
 ---
 
@@ -270,4 +269,4 @@ Invoke-RestMethod "$URL/api/preguntar" -Method Post -ContentType "application/js
 | El contenedor se reinicia | Memoria insuficiente | Asigna 4 GB, o usa `EMBEDDER=ninguno` (solo BM25) |
 | Error 429 | Límite por minuto | Espera, o sube `LIMITE_IP_MIN` para la demo |
 | La instancia de Aura desapareció | Pasó 30 días en pausa | Crea otra y ejecuta `scripts/cargar_neo4j.py` |
-| Actions falla por falta de permiso al publicar | El repositorio limita `GITHUB_TOKEN` | Edson activa *Settings → Actions → Workflow permissions → Read and write* |
+| Actions falla por falta de permiso al publicar | El fork limita `GITHUB_TOKEN` | Activa *Settings → Actions → Workflow permissions → Read and write* en el fork |
