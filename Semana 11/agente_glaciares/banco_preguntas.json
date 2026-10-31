@@ -1,0 +1,92 @@
+[
+ {
+  "id": "P1",
+  "tipo": "competencia",
+  "pregunta": "¿Cuántas lagunas de origen glaciar se formaron en la Cordillera Blanca según el inventario de 2023?"
+ },
+ {
+  "id": "P2",
+  "tipo": "competencia",
+  "pregunta": "¿Qué lagunas glaciares de Áncash tienen riesgo muy alto de desborde?"
+ },
+ {
+  "id": "P3",
+  "tipo": "competencia",
+  "pregunta": "¿Qué centros poblados están aguas abajo de lagunas con riesgo alto y qué estudios los evaluaron?"
+ },
+ {
+  "id": "P4",
+  "tipo": "competencia",
+  "pregunta": "¿Qué lagunas tuvieron eventos de desborde, de qué glaciar provienen y qué poblados afectaron?"
+ },
+ {
+  "id": "P5",
+  "tipo": "competencia",
+  "pregunta": "¿Qué glaciares con retroceso medido (balance de masa) alimentan lagunas que hoy están en riesgo?"
+ },
+ {
+  "id": "P6",
+  "tipo": "competencia",
+  "pregunta": "¿Qué métodos de monitoreo se aplicaron a lagunas en riesgo y qué institución realizó cada estudio?"
+ },
+ {
+  "id": "P7",
+  "tipo": "competencia",
+  "pregunta": "¿En qué subcuencas coinciden lagunas en riesgo y contaminación por drenaje ácido de roca?"
+ },
+ {
+  "id": "P8",
+  "tipo": "competencia",
+  "pregunta": "¿Qué bofedales están en subcuencas con glaciares en retroceso y qué servicios ecosistémicos brindan?"
+ },
+ {
+  "id": "P9",
+  "tipo": "competencia",
+  "pregunta": "¿Cómo cambió la superficie glaciar de una cordillera entre los inventarios de 2018 y 2023?"
+ },
+ {
+  "id": "P10",
+  "tipo": "competencia",
+  "pregunta": "¿Qué lagunas en riesgo cuentan con obras de seguridad, en qué estado están y qué poblados protegen?"
+ },
+ {
+  "id": "D1",
+  "tipo": "descriptiva",
+  "pregunta": "¿Por qué la laguna Palcacocha es peligrosa?"
+ },
+ {
+  "id": "D2",
+  "tipo": "multilingüe",
+  "pregunta": "¿Qué factores explican el balance de masa y energía de los glaciares peruanos?"
+ },
+ {
+  "id": "D3",
+  "tipo": "histórica",
+  "pregunta": "¿Qué ocurrió en el aluvión de Huaraz de 1941?"
+ },
+ {
+  "id": "D4",
+  "tipo": "conteo",
+  "pregunta": "¿Cuántas lagunas con riesgo muy alto de desborde hay en cada departamento?"
+ },
+ {
+  "id": "D5",
+  "tipo": "fuera del corpus",
+  "pregunta": "¿Quién ganó el Mundial de fútbol 2022?"
+ },
+ {
+  "id": "G1",
+  "tipo": "negación",
+  "pregunta": "¿Qué lagunas en riesgo alto o muy alto no tienen obras de seguridad registradas?"
+ },
+ {
+  "id": "G2",
+  "tipo": "conteo varios saltos",
+  "pregunta": "¿Qué cordillera tiene más lagunas en riesgo?"
+ },
+ {
+  "id": "G3",
+  "tipo": "camino",
+  "pregunta": "¿Cómo se relaciona el nevado Huascarán con Yungay?"
+ }
+]
