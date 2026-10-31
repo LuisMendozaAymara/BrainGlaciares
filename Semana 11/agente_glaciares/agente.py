@@ -31,10 +31,17 @@ RECORDATORIO = "Tu respuesta no se apoya en evidencia."
 PRESENTACION = ("Soy el agente de Enterprise Brain Glaciares. Respondo sobre glaciares, lagunas glaciares y riesgo de desborde en el "
                 "Perú, con citas de los 398 documentos del INAIGEM, la ANA y el SENAMHI. Por ejemplo: «¿Qué lagunas de Áncash "
                 "tienen riesgo muy alto?» o «¿Por qué la laguna Palcacocha es peligrosa?».")
+TEMA = re.compile(r"lagun|glaciar|nevado|cordillera|aluvi|desbord|riesg|peligr|inventario|bofedal|deshielo|retroceso|monitoreo|"
+                  r"batimetr|inaigem|senamhi|cuenca|quebrada|dique|represa|morrena|hielo|avalancha|huayco|ecosistema")
 CHARLA = re.compile(r"^\s*(hola|buen[oa]s(\s+(dias|tardes|noches))?|hey|gracias|muchas gracias|ok|adios|chau|"
                     r"(que|como) (puedes|sabes|me puedes) (hacer|ayudar)|ayuda|quien eres)\s*[.!?¡¿]*\s*$")
 
 ESTRATEGIA = """Eres el agente de Enterprise Brain Glaciares. Reúnes evidencia con tus herramientas antes de responder.
+
+Interpreta la pregunta como la haría una persona:
+- Acepta frases cortas, sin tildes, en minúsculas o con errores de escritura ("lagunas cusco", "palcacoha").
+- "Peligrosa", "más peligrosa" o "en peligro" significan nivel de riesgo: usa E12_riesgo_departamento si nombran un departamento y presenta primero las de riesgo más alto.
+- Si la pregunta es del tema, usa al menos una herramienta antes de decir que no encontraste algo. Si una consulta da 0 filas, prueba otra: a veces hay riesgo "Alto" aunque no haya "Muy alto".
 
 Cómo trabajar:
 - Listas, conteos, negaciones o cadenas de varios saltos: usa consulta_verificada si alguna coincide con los filtros de la pregunta; si no, consulta_libre.
@@ -75,6 +82,15 @@ class Agente:
         self.sistema = ESTRATEGIA + GR.INSTRUCCIONES_GR.format(palabras=motor.cfg["PALABRAS"])
         self.grafo = self._construir()
 
+    def _del_tema(self, pregunta):
+        """¿Habla de glaciares o nombra algo del grafo? Sin importar mayúsculas, tildes ni redacción."""
+        q = GR.norm(pregunta)
+        if TEMA.search(q):
+            return True
+        tokens = re.findall(r"[a-z0-9-]+", q)
+        grupos = tokens + [" ".join(p) for p in zip(tokens, tokens[1:])]
+        return any(t in self.m.enl.por_k or t in GR.DEPARTAMENTOS_N for t in grupos)
+
     # ---------- nodos ----------
     def guardia(self, s):
         """Lo que se puede resolver sin gastar una llamada al LLM."""
@@ -83,11 +99,9 @@ class Agente:
         if CHARLA.match(q):
             ctx.pasos.append({"tipo": "guardia", "motivo": "saludo o ayuda"})
             return {"respuesta": PRESENTACION, "modo": "guardia", "avisos": []}
-        if s.get("con_historial"):
-            return {}
         indice = self.m.indice
-        entidades = self.m.enl.enlazar(ctx.pregunta)
-        if entidades or self.m.ruta_reglas(ctx.pregunta, entidades)[0] in GR.PLANTILLAS or indice is None:
+        # interpretar la pregunta le toca al LLM: aquí solo se descarta lo que claramente no es del tema
+        if s.get("con_historial") or indice is None or self._del_tema(ctx.pregunta):
             return {}
         try:
             umbral = indice.cfg.get("UMBRAL_SIM")
@@ -158,7 +172,9 @@ class Agente:
     def revisar(self, s):
         ctx = s["ctx"]
         respuesta = GR.normalizar_citas(texto_de(s["messages"][-1]))
-        if not ctx.fuentes and not respuesta.startswith("No encontré"):
+        se_rindio = respuesta.startswith("No encontré") and self._del_tema(ctx.pregunta) \
+            and not any(p["tipo"] == "herramienta" for p in ctx.pasos)   # dijo que no sin buscar en una pregunta del tema
+        if not ctx.fuentes and (se_rindio or not respuesta.startswith("No encontré")):
             if s.get("recordatorios", 0) == 0:   # respondió de memoria: se le pide evidencia una vez
                 ctx.pasos.append({"tipo": "verificacion", "resultado": "respondió sin evidencia; se le pide usar herramientas"})
                 return {"recordatorios": 1,

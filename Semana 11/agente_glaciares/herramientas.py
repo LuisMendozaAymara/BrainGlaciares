@@ -25,6 +25,18 @@ ANTESALA = re.compile(r"^(?:(laguna|lagunas|glaciar|nevado|cordillera|subcuenca|
 PROHIBIDO_EXTRA = re.compile(r"(//|/\*|;|\b(?:apoc|dbms|gds|db)\s*\.|\b(?:USE|SHOW|START|STOP|TERMINATE|RENAME|IMPORT|EXPLAIN|PROFILE)\b)", re.I)
 _contexto = contextvars.ContextVar("contexto_agente")
 
+# P2 pide un solo nivel: con "las más peligrosas de Cusco" daba 0 filas, porque allí hay riesgo Alto pero no Muy alto
+GR.PLANTILLAS["E12_riesgo_departamento"] = dict(
+    titulo="Lagunas en riesgo de un departamento, de mayor a menor riesgo",
+    params={"niveles": GR.EN_RIESGO, "departamento": "Áncash"}, cypher="""
+MATCH (l:Laguna)
+WHERE l.nivel_max IN $niveles AND $departamento IN l.departamentos
+OPTIONAL MATCH (l)-[r:TIENE_NIVEL_RIESGO]->(n:NivelRiesgo)
+WHERE n.nombre = l.nivel_max
+RETURN l.nombre AS laguna, l.nivel_max AS nivel, r.documento AS documento, r.pagina AS pagina, r.evidencia AS evidencia
+ORDER BY nivel DESC, laguna""")
+GR.ROTULOS["E12_riesgo_departamento"] = "lagunas en riesgo o más peligrosas de un departamento, de mayor a menor riesgo (parámetro: departamento)"
+
 
 def validar_cypher_estricto(c, limite=50):
     """La validación de la semana 10 más: sin comentarios, sin varias sentencias y sin procedimientos del sistema."""

@@ -110,6 +110,13 @@ def test_ficha_filtra_relaciones(caja):
     assert ctx.fuentes and all("amenazaA" in f["texto"] for f in ctx.fuentes)
 
 
+def test_lagunas_en_riesgo_de_un_departamento_de_mayor_a_menor(caja):
+    ctx = ctx_de("las lagunas mas peligrosas de cusco")
+    t = caja.ejecutar("consulta_verificada", {"consulta_id": "E12_riesgo_departamento", "departamento": "cusco"}, ctx)
+    assert not t.startswith("ERROR") and ctx.fuentes
+    assert "Upiscocha" in t
+
+
 def test_relaciones_de_la_descripcion_existen_en_el_grafo():
     """Prueba real: la descripción decía tieneObra y el grafo usa tieneObraSeguridad; el LLM repetía llamadas vacías."""
     import os
