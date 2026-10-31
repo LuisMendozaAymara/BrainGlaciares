@@ -5,6 +5,10 @@
 El GraphRAG de la semana 10 elige una herramienta y responde. Este agente trabaja en un ciclo: elige una herramienta, lee el resultado
 y decide si necesita otra. Corre en un contenedor en la nube, con API y página web, y cada dato sigue llevando documento y página.
 
+**Agente en la nube:** <https://agente-glaciares.jollyplant-0c13b6a7.chilecentral.azurecontainerapps.io> · [documentación de la API](https://agente-glaciares.jollyplant-0c13b6a7.chilecentral.azurecontainerapps.io/docs)
+
+Si estuvo sin uso, tarda un momento en despertar. Ábrelo 2 minutos antes de una demo.
+
 Esta carpeta es nueva y no cambia nada de las semanas anteriores: solo lee sus datos con `scripts/preparar_datos.py`.
 Fuera de ella se agrega un único archivo, `.github/workflows/agente-imagen.yml`, para construir la imagen en GitHub.
 
@@ -93,8 +97,10 @@ Semana 11/
 | Página web en computador y celular | ✅ | Citas, enlaces y pasos funcionan; sin errores en consola |
 | Formato para RAGAS | ✅ | Mismas claves que `ragas_semana10.jsonl` |
 | GitHub Actions | ✅ | Pruebas en verde en un entorno limpio e imagen publicada |
-| **Azure y Cloud Run** | ⏳ | Necesitan tus cuentas; solo se revisó la sintaxis del script de Azure |
-| **Ejecutar la imagen final con modelo incluido y versiones fijadas** | ⏳ | Ya está construida, pero aún no se ha ejecutado. Se comprueba en el paso 5. El contenedor medido arriba tenía el modelo en un volumen |
+| Azure Container Apps con la imagen final | ✅ | Desplegado en Chile Central; página, API, streaming y memoria probados por la URL pública |
+| Evaluación en la nube ([reporte](agente_glaciares/resultados/reporte_agente.md)) | ✅ | Preguntas de competencia: 10/10 con citas. De las 18, 17 en modo agente y la del Mundial rechazada sin gastar LLM. 4.1 s de promedio y sin avisos de la verificación |
+| **Calidad del contenido** | ⏳ | La verificación comprueba citas y cifras, no si cada frase dice lo mismo que su fuente. Eso lo mide RAGAS la próxima semana con `ragas_semana11.jsonl` |
+| **Google Cloud Run** | ⏳ | Es una alternativa que no se ha ejecutado |
 
 ### Revisa esto: Aura y la copia del grafo no coinciden
 
@@ -205,7 +211,9 @@ La imagen es la misma en ambas opciones.
    .\scripts\desplegar_azure.ps1 -Imagen ghcr.io/luismendozaaymara/brainglaciares-agente:latest
    ```
 
-Al final muestra la URL pública. Si Azure rechaza la región por una política de la suscripción, consulta las permitidas en *Directivas → Allowed resource deployment regions* del portal y agrega `-Region otra-region`.
+Al final muestra la URL pública; la primera vez tarda unos 10 minutos. Usa `chilecentral`, la región más cercana entre las que permite la suscripción de la UNMSM (también `brazilsouth`, `canadacentral`, `westus2` y `northcentralus`). Con otra suscripción, agrega `-Region otra-region`.
+
+Para publicar una versión nueva, sube los cambios, espera a que Actions termine y vuelve a ejecutar el script. Si la etiqueta sigue siendo `latest`, Azure puede no crear una revisión nueva: usa la etiqueta con el commit, que Actions indica en su resumen (por ejemplo `:174a361`).
 
 #### Opción B: Google Cloud Run (requiere tarjeta)
 
@@ -224,7 +232,7 @@ Sus [Spaces con Docker ahora requieren un plan de pago](https://huggingface.co/d
 ### Paso 5. Verifica el despliegue
 
 ```powershell
-$URL = "https://TU-SERVICIO"
+$URL = "https://agente-glaciares.jollyplant-0c13b6a7.chilecentral.azurecontainerapps.io"
 Invoke-RestMethod "$URL/salud"
 Invoke-RestMethod "$URL/api/info" | ConvertTo-Json -Depth 4
 ```
