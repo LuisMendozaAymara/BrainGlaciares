@@ -1,0 +1,10 @@
+# claves
+.env
+.env.*
+!.env.example
+# copia de los datos de las semanas 7 y 9 (se genera con scripts/preparar_datos.py; los originales ya están en el repo)
+datos/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

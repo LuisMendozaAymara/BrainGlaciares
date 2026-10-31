@@ -1,0 +1,53 @@
+# Prueba y publica la imagen del agente (Semana 11) en GitHub Container Registry, sin usar el disco de nadie.
+# Se ejecuta al subir cambios del agente; también se puede lanzar a mano desde la pestaña Actions.
+name: Imagen del agente
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, entrega-semana-11]
+    paths:
+      - "Semana 11/agente_glaciares/**"
+      - ".github/workflows/agente-imagen.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: imagen-agente-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  imagen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: "Semana 11/agente_glaciares"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar datos de las semanas 7 y 9
+        run: python scripts/preparar_datos.py
+
+      - name: Pruebas (sin claves ni cuota; LLM simulado sobre los datos reales)
+        run: |
+          docker build --target pruebas --build-arg HORNEAR_MODELO=0 -t agente-pruebas .
+          docker run --rm -v "$PWD:/app" -e DATOS_DIR=/app/datos -e EMBEDDER=ninguno agente-pruebas \
+            python -m pytest tests -q --no-header -p no:cacheprovider
+          sudo rm -rf datos/kuzu_glaciares datos/kuzu_glaciares.wal
+
+      - name: Nombre de la imagen
+        run: |
+          echo "IMAGEN=ghcr.io/${GITHUB_REPOSITORY,,}-agente" >> "$GITHUB_ENV"
+          echo "VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Entrar al registro
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Construir y publicar
+        run: |
+          docker build -t "$IMAGEN:$VERSION" -t "$IMAGEN:latest" .
+          docker push --all-tags "$IMAGEN"
+          echo "Imagen publicada: $IMAGEN:$VERSION" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agente Glaciares</title>
+  <meta name="description" content="Agente con herramientas sobre el grafo de conocimiento y los 398 documentos de glaciares del Perú.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%232b6c8f' d='M16 4 2 28h28z'/%3E%3Cpath fill='%23fff' d='m16 4-5.5 9.5 3 2 2.500-2 2.500 2 3-2z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/estilos.css">
+</head>
+<body>
+  <header class="cabecera">
+    <div>
+      <h1>Agente Glaciares</h1>
+      <p>Enterprise Brain · Grupo G8 · UNMSM</p>
+    </div>
+    <div class="estado" id="estado" role="status"><span class="punto"></span><span id="estado-texto">Conectando…</span></div>
+  </header>
+
+  <main class="contenido">
+    <section class="chat" aria-label="Conversación">
+      <div class="mensajes" id="mensajes" aria-live="polite">
+        <div class="bienvenida" id="bienvenida">
+          <h2>Pregunta sobre glaciares y lagunas del Perú</h2>
+          <p>El agente consulta un grafo de conocimiento y 398 documentos del INAIGEM, la ANA y el SENAMHI. Cada dato viene con su fuente.</p>
+          <div class="ejemplos" id="ejemplos"></div>
+        </div>
+      </div>
+      <form class="entrada" id="formulario">
+        <label class="oculto" for="pregunta">Tu pregunta</label>
+        <textarea id="pregunta" rows="2" maxlength="1000" placeholder="Escribe tu pregunta…" required></textarea>
+        <button type="submit" id="enviar">Preguntar</button>
+      </form>
+    </section>
+
+    <aside class="panel" aria-label="Cómo se obtuvo la respuesta">
+      <h2>Cómo respondió</h2>
+      <ol class="pasos" id="pasos"><li class="vacio">Aquí verás cada herramienta que usa el agente.</li></ol>
+      <h2>Fuentes</h2>
+      <ul class="fuentes" id="fuentes"><li class="vacio">Aquí aparecerán los documentos citados.</li></ul>
+    </aside>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
