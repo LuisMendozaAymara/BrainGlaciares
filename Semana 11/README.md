@@ -146,8 +146,7 @@ git push fork entrega-semana-11
 ```
 
 1. En la pestaña [Actions del fork](https://github.com/LuisMendozaAymara/BrainGlaciares/actions), espera a que **Imagen del agente** termine en verde. Ejecuta las pruebas y publica la imagen.
-2. Entra a los [paquetes de tu perfil](https://github.com/LuisMendozaAymara?tab=packages), abre **brainglaciares-agente → Package settings → Change visibility** y déjala **Public**. No contiene claves, y sus datos son los mismos del repositorio público.
-3. Tu imagen se llama `ghcr.io/luismendozaaymara/brainglaciares-agente:latest`.
+2. Tu imagen se llama `ghcr.io/luismendozaaymara/brainglaciares-agente:latest`. Ya se puede descargar sin iniciar sesión, así que Azure no necesita credenciales. No contiene claves, y sus datos son los mismos del repositorio público.
 
 <details>
 <summary>Alternativa: construirla en tu computador (15 GB libres)</summary>
