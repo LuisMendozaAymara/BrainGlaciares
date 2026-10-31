@@ -7,7 +7,7 @@ y decide si necesita otra. Corre en un contenedor en la nube, con API y página 
 
 **Agente en la nube:** <https://agente-glaciares.jollyplant-0c13b6a7.chilecentral.azurecontainerapps.io> · [documentación de la API](https://agente-glaciares.jollyplant-0c13b6a7.chilecentral.azurecontainerapps.io/docs)
 
-Si estuvo sin uso, tarda un momento en despertar. Ábrelo 2 minutos antes de una demo.
+Si estuvo sin uso, tarda unos 30 segundos en despertar. Ábrelo un momento antes de una demo.
 
 Esta carpeta es nueva y no cambia nada de las semanas anteriores: solo lee sus datos con `scripts/preparar_datos.py`.
 Fuera de ella se agrega un único archivo, `.github/workflows/agente-imagen.yml`, para construir la imagen en GitHub.
@@ -89,7 +89,7 @@ Semana 11/
 | Comprobación | Estado | Resultado |
 |---|---|---|
 | Agente con Groq, Gemini y Aura reales | ✅ | 7 preguntas en modo agente, con varias herramientas y citas; cambia de Groq a Gemini a mitad de pregunta cuando se agota la cuota |
-| Pruebas automáticas | ✅ | 144 pruebas: 122 con LLM simulado y 22 contra un Neo4j 5 local |
+| Pruebas automáticas | ✅ | 147 pruebas: 125 con LLM simulado, en cada subida a GitHub, y 22 contra un Neo4j 5 local |
 | Consultas: Neo4j frente a Kùzu | ✅ | Mismas filas en las 18 consultas |
 | Escrituras en Neo4j y consultas lentas | ✅ | Rechazadas y cortadas |
 | Contenedor con 2 CPU y 4 GB | ✅ | Listo en 67 s · memoria de 1.4 a 1.8 GiB · 1 a 2 s por pregunta sin LLM |
@@ -98,6 +98,7 @@ Semana 11/
 | Formato para RAGAS | ✅ | Mismas claves que `ragas_semana10.jsonl` |
 | GitHub Actions | ✅ | Pruebas en verde en un entorno limpio e imagen publicada |
 | Azure Container Apps con la imagen final | ✅ | Desplegado en Chile Central; página, API, streaming y memoria probados por la URL pública |
+| Apagado y arranque en Azure | ✅ | Se apaga tras unos 6 minutos sin uso, sin consumir crédito. Despierta en 26 s (la página aparece en 4 s) |
 | Evaluación en la nube ([reporte](agente_glaciares/resultados/reporte_agente.md)) | ✅ | Preguntas de competencia: 10/10 con citas. De las 18, 17 en modo agente y la del Mundial rechazada sin gastar LLM. 4.1 s de promedio y sin avisos de la verificación |
 | **Calidad del contenido** | ⏳ | La verificación comprueba citas y cifras, no si cada frase dice lo mismo que su fuente. Eso lo mide RAGAS la próxima semana con `ragas_semana11.jsonl` |
 | **Google Cloud Run** | ⏳ | Es una alternativa que no se ha ejecutado |
@@ -124,7 +125,7 @@ Aura tiene una curaduría posterior: ya no incluye como lagunas o glaciares entr
 3. **Antes de cada despliegue:** pruebas en verde y `scripts/comprobar_entorno.py` sin fallas.
 4. **Cada versión de la imagen lleva su número**, para poder volver atrás.
 5. **Toda respuesta se revisa con sus fuentes.** Las pruebas automáticas no reemplazan la evaluación de contenido de la siguiente semana.
-6. **Despierta el servicio antes de la demo.** Abre la URL dos minutos antes: sin uso se apaga para no gastar crédito.
+6. **Despierta el servicio antes de la demo.** Abre la URL un momento antes: sin uso se apaga para no gastar crédito.
 
 ---
 
@@ -251,9 +252,7 @@ El plan gratuito de Groq admite 8 000 tokens por minuto y cada llamada usa de 3 
 
 ### Paso 7. Entrega
 
-1. Pega la URL pública en la primera celda de `semana11_agente_glaciares.ipynb` y ejecútalo en Colab para dejar las salidas guardadas.
-2. Agrega el notebook, la carpeta `resultados/` y, al final de este README, la URL y los resultados de `reporte_agente.md`.
-3. Sube los cambios con `git push fork entrega-semana-11` y abre el PR desde el fork hacia `EdsonPerez7/BrainGlaciares`.
+El notebook ya está ejecutado contra la nube, con sus salidas guardadas, y la carpeta `resultados/` está en la rama. Si cambias algo, súbelo con `git push fork entrega-semana-11`. Lo último es abrir el PR desde el fork hacia `EdsonPerez7/BrainGlaciares`.
 
 ---
 
@@ -279,7 +278,7 @@ Invoke-RestMethod "$URL/api/preguntar" -Method Post -ContentType "application/js
 
 | Síntoma | Causa probable | Qué hacer |
 |---|---|---|
-| El indicador dice "Despertando" | El servicio estaba apagado | Espera alrededor de un minuto |
+| El indicador dice "Despertando" | El servicio estaba apagado | Espera unos 30 segundos |
 | El indicador dice "Kùzu" | Neo4j en pausa o sin configurar | Reanuda la instancia en console.neo4j.io; vuelve solo en 5 minutos |
 | `sin LLM: modo evidencia` | Claves ausentes o cuotas agotadas | Revisa `/api/info` → `modelos` y ejecuta `comprobar_entorno.py` |
 | El contenedor se reinicia | Memoria insuficiente | Asigna 4 GB, o usa `EMBEDDER=ninguno` (solo BM25) |

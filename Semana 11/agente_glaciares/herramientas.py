@@ -110,8 +110,8 @@ class ArgsConsulta(BaseModel):
 class ArgsFicha(BaseModel):
     nombres: List[str] = Field(description="Una a tres entidades nombradas, por ejemplo ['Palcacocha'].")
     relaciones: Optional[List[str]] = Field(default=None, description=(
-        "Solo estas relaciones, si la pregunta pide algo concreto: amenazaA, alimentadaPor, tieneNivelRiesgo, tieneObra, "
-        "estadoObra, monitoreadoCon, ubicadaEn, presentaFenomeno, ocurrioEn, afectoA, intervieneEn."))
+        "Solo estas relaciones, si la pregunta pide algo concreto: amenazaA, alimentadaPor, tieneNivelRiesgo, tieneObraSeguridad, "
+        "estadoObra, monitoreadoCon, ubicadaEn, presentaFenomeno, ocurrioEn, afectoA, intervieneEn, tieneVolumen, tieneArea, tieneAltitud."))
 
 
 class ArgsCamino(BaseModel):
@@ -292,7 +292,11 @@ class CajaHerramientas:
         d = self.m.g.ficha(ids, limite)
         if relaciones and len(d):
             pedidas = {GR.norm(r) for r in relaciones}
-            d = d[d.relacion.map(GR.norm).isin(pedidas)]
+            filtrado = d[d.relacion.map(GR.norm).isin(pedidas)]
+            if not len(filtrado):   # sin esto, el LLM repite la misma llamada cambiando poco o nada
+                return (f"0 hechos con las relaciones {', '.join(relaciones)}. "
+                        f"Relaciones que sí tiene esta entidad: {', '.join(sorted(set(d.relacion.dropna())))}.")
+            d = filtrado
         plan = {"herramienta": "ficha"}
         aviso = f"No se encontró: {', '.join(no_halladas)}." if no_halladas else ""
         nombres_ok = ", ".join(f.nombre for _, f in filas if f is not None)

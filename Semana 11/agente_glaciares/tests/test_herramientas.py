@@ -110,6 +110,30 @@ def test_ficha_filtra_relaciones(caja):
     assert ctx.fuentes and all("amenazaA" in f["texto"] for f in ctx.fuentes)
 
 
+def test_relaciones_de_la_descripcion_existen_en_el_grafo():
+    """Prueba real: la descripción decía tieneObra y el grafo usa tieneObraSeguridad; el LLM repetía llamadas vacías."""
+    import os
+    import re
+    from conftest import DATOS
+    from herramientas import ArgsFicha
+    existentes = set(pd.read_csv(os.path.join(DATOS, "relaciones.csv"), usecols=["pred"]).pred)
+    texto = ArgsFicha.model_fields["relaciones"].description
+    nombradas = re.findall(r"\b[a-z]+[A-Z]\w*\b", texto)
+    assert len(nombradas) >= 10 and set(nombradas) <= existentes
+
+
+def test_ficha_con_obras_de_seguridad(caja):
+    ctx = ctx_de()
+    caja.ejecutar("ficha_entidad", {"nombres": ["Palcacocha"], "relaciones": ["tieneObraSeguridad"]}, ctx)
+    assert ctx.fuentes and all("tieneObraSeguridad" in f["texto"] for f in ctx.fuentes)
+
+
+def test_filtro_vacio_indica_las_relaciones_que_existen(caja):
+    ctx = ctx_de()
+    t = caja.ejecutar("ficha_entidad", {"nombres": ["Palcacocha"], "relaciones": ["noExiste"]}, ctx)
+    assert "0 hechos" in t and "tieneObraSeguridad" in t and not ctx.fuentes
+
+
 def test_ficha_de_entidad_desconocida(caja):
     t = caja.ejecutar("ficha_entidad", {"nombres": ["Atlantida del Sur"]}, ctx_de())
     assert "No encontré" in t and "buscar_entidad" in t
