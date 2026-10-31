@@ -93,8 +93,9 @@ Semana 11/
 | Formato para RAGAS | ✅ | Mismas claves que `ragas_semana10.jsonl` |
 | **Respuestas redactadas con Groq o Gemini reales** | ⏳ | Sin claves durante el desarrollo: el ciclo se probó con un LLM simulado. **Se comprueba en el paso 3** |
 | **Conexión a tu instancia de Aura** | ⏳ | Se comprueba en el paso 3 |
-| **GitHub Actions, Azure y Cloud Run** | ⏳ | Necesitan tus cuentas; solo se revisó su sintaxis |
-| **Imagen final con modelo incluido y versiones fijadas** | ⏳ | Se probó con el modelo en un volumen, por falta de disco. La construye GitHub Actions en el paso 2 |
+| GitHub Actions | ✅ | Pruebas en verde en un entorno limpio e imagen publicada |
+| **Azure y Cloud Run** | ⏳ | Necesitan tus cuentas; solo se revisó la sintaxis del script de Azure |
+| **Ejecutar la imagen final con modelo incluido y versiones fijadas** | ⏳ | Ya está construida, pero aún no se ha ejecutado. Se comprueba en el paso 5. El contenedor medido arriba tenía el modelo en un volumen |
 
 ### Revisa esto: Aura y el CSV podrían no coincidir
 
