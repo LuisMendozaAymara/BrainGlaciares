@@ -41,6 +41,8 @@ function idSesion() {
 }
 
 // ---------- estado del servicio ----------
+// Solo se repite mientras el servicio despierta: una consulta periódica con la pestaña abierta
+// impediría que la nube lo apague cuando nadie pregunta, y seguiría gastando crédito.
 async function comprobarEstado() {
   let reintento = 5000;
   try {
@@ -51,18 +53,19 @@ async function comprobarEstado() {
     if (d.estado === "listo") {
       const llm = (d.modelos || []).some((m) => m.disponible);
       $("estado-texto").textContent = `${d.grafo.activo} · ${llm ? "LLM disponible" : "sin LLM: modo evidencia"}`;
-      reintento = 60000;
+      return;
     } else if (d.estado === "error") {
       $("estado-texto").textContent = "No pudo iniciar";
-      reintento = 30000;
+      return;
     } else {
       $("estado-texto").textContent = `Despertando: ${d.detalle}…`;
     }
   } catch {
     $("estado").className = "estado error";
     $("estado-texto").textContent = "Sin conexión";
+    reintento = 15000;
   }
-  setTimeout(comprobarEstado, reintento);
+  if (!document.hidden) setTimeout(comprobarEstado, reintento);
 }
 
 // ---------- texto con formato ----------
@@ -241,6 +244,7 @@ async function preguntar(texto) {
   } finally {
     boton.disabled = false;
     $("pregunta").focus();
+    comprobarEstado();   // el servicio ya está despierto: se aprovecha para actualizar el indicador
   }
 }
 
@@ -292,5 +296,8 @@ $("pregunta").addEventListener("keydown", (e) => {
     e.preventDefault();
     $("formulario").requestSubmit();
   }
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !$("estado").classList.contains("listo")) comprobarEstado();
 });
 comprobarEstado();
