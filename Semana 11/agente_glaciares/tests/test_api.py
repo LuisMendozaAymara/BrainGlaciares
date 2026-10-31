@@ -193,6 +193,25 @@ def test_memoria_caduca_y_tiene_tope():
     assert m.historial("b") == []
 
 
+def test_un_no_encontre_no_queda_en_cache():
+    from servicio import Servicio
+
+    class AgenteFalso:
+        def __init__(self, citas):
+            self.citas = citas
+
+        def en_pasos(self, pregunta, historial=None):
+            yield {"tipo": "final", "resultado": {**RESULTADO, "pregunta": pregunta, "n_citas": self.citas}}
+
+    srv = Servicio(Config())
+    srv.agente = AgenteFalso(0)
+    srv.responder("lagunas de cusco")
+    assert srv.cache.obtener("lagunas de cusco") is None
+    srv.agente = AgenteFalso(3)
+    srv.responder("lagunas de cusco")
+    assert srv.cache.obtener("lagunas de cusco") is not None
+
+
 def test_cache_ignora_tildes_y_mayusculas():
     c = CacheRespuestas()
     c.guardar("¿Qué riesgo tiene Parón?", {"r": 1})

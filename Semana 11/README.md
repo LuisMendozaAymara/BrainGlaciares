@@ -89,7 +89,8 @@ Semana 11/
 | Comprobación | Estado | Resultado |
 |---|---|---|
 | Agente con Groq, Gemini y Aura reales | ✅ | 7 preguntas en modo agente, con varias herramientas y citas; cambia de Groq a Gemini a mitad de pregunta cuando se agota la cuota |
-| Pruebas automáticas | ✅ | 147 pruebas: 125 con LLM simulado, en cada subida a GitHub, y 22 contra un Neo4j 5 local |
+| Preguntas en lenguaje natural | ✅ | 10 de 10 frases simples respondidas, con minúsculas, sin tildes o con errores ("lagunas mas riesgosas en cuzco"); Groq y Gemini las interpretan |
+| Pruebas automáticas | ✅ | 153 pruebas: 131 con LLM simulado, en cada subida a GitHub, y 22 contra un Neo4j 5 local |
 | Consultas: Neo4j frente a Kùzu | ✅ | Mismas filas en las 18 consultas |
 | Escrituras en Neo4j y consultas lentas | ✅ | Rechazadas y cortadas |
 | Contenedor con 2 CPU y 4 GB | ✅ | Listo en 67 s · memoria de 1.4 a 1.8 GiB · 1 a 2 s por pregunta sin LLM |

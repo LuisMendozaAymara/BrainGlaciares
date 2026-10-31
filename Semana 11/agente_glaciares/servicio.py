@@ -125,8 +125,9 @@ class Servicio:
             if ev["tipo"] == "final":
                 r = ev["resultado"]
                 self.memoria.guardar(sesion, pregunta, r["respuesta"])
-                # solo se reutiliza lo que el LLM redactó y pasó la verificación; no los modos degradados
-                if not historial and r["modo"] == "agente" and not r["avisos"]:
+                # solo se reutiliza lo que el LLM redactó y pasó la verificación; no los modos degradados ni un "no encontré",
+                # que podría deberse a una mala decisión del modelo y quedaría fijo una hora
+                if not historial and r["modo"] == "agente" and not r["avisos"] and r["n_citas"] > 0:
                     self.cache.guardar(pregunta, r)
             yield ev
 
