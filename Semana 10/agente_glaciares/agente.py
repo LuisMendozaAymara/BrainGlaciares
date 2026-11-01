@@ -30,6 +30,7 @@ from herramientas import Contexto
 from llm import SinModelos, texto_de
 
 NO_ENCONTRE = "No encontré esa información en el grafo ni en los documentos del corpus."
+SIN_LLM = "En este momento los modelos de lenguaje no están disponibles y no puedo analizar tu pregunta. Inténtalo de nuevo en un minuto."
 RECORDATORIO = "Tu respuesta no se apoya en evidencia."
 DIRECTA = "responder_directo"
 # cómo se muestra cada decisión del LLM; el aviso no depende de lo que el modelo haya escrito
@@ -155,6 +156,8 @@ class Agente:
                 ctx.pasos.append({"tipo": "verificacion", "resultado": "respondió sin buscar; se le pide usar herramientas"})
                 return {"recordatorios": 1, "messages": [HumanMessage(RECORDATORIO + " Busca primero en los documentos con buscar_documentos.")]}
             return {"respuesta": NO_ENCONTRE, "modo": "agente", "avisos": []}
+        if ctx.fuentes and re.search(r"\[\d+\]", texto):   # cita evidencia que sí reunió: es una respuesta normal y se verifica como tal
+            return {"messages": [AIMessage(content=texto)]}
         modo, aviso = CLASES.get(clase, CLASES["ajena"])
         ctx.pasos.append({"tipo": "verificacion", "resultado": f"el LLM respondió sin fuentes (análisis: {clase})"})
         return {"respuesta": texto, "modo": modo, "modelo": self.cadena.ultimo, "avisos": [aviso] if aviso else []}
@@ -230,6 +233,8 @@ class Agente:
         ctx.bloques.extend(r.get("contextos") or [])
         ctx.pasos.append({"tipo": "herramienta", "herramienta": r["plan"].get("herramienta_final") or r["plan"]["herramienta"],
                           "args": r["plan"].get("parametros", {}), "motor": "semana 10"})
+        if r["respuesta"].startswith("No encontré") and not r["fuentes"] and s.get("falla"):   # sin LLM ni evidencia, "no encontré" sería falso: nadie analizó la pregunta
+            return {"respuesta": SIN_LLM, "modo": "sin_llm", "avisos": []}
         modo = "graphrag" if r["modo"] == "LLM" else "evidencia"
         avisos = list(r["avisos"]) + ([] if modo == "graphrag" else ["Ningún LLM está disponible para analizar la pregunta: este resultado es una búsqueda automática y puede no tener relación con ella."])
         return {"respuesta": r["respuesta"], "avisos": avisos, "modo": modo, "modelo": r.get("modelo"), "autocorregida": r.get("autocorregida", False)}
@@ -246,7 +251,10 @@ class Agente:
 
     @staticmethod
     def _tras_directa(s):
-        return "fin" if s.get("respuesta") else "agente"
+        if s.get("respuesta"):
+            return "fin"
+        ultimo = s["messages"][-1]
+        return "revisar" if isinstance(ultimo, AIMessage) and not ultimo.tool_calls else "agente"
 
     def _tras_herramientas(self, s):
         cerca = time.time() >= s["fecha_limite"] - self.cfg.timeout_llm
@@ -269,7 +277,7 @@ class Agente:
             g.add_node(nombre, getattr(self, nombre))
         g.add_edge(START, "agente")
         g.add_conditional_edges("agente", self._tras_agente, {"herramientas": "herramientas", "directa": "directa", "revisar": "revisar", "respaldo": "respaldo"})
-        g.add_conditional_edges("directa", self._tras_directa, {"agente": "agente", "fin": END})
+        g.add_conditional_edges("directa", self._tras_directa, {"agente": "agente", "revisar": "revisar", "fin": END})
         g.add_conditional_edges("herramientas", self._tras_herramientas, {"agente": "agente", "sintesis": "sintesis"})
         g.add_conditional_edges("sintesis", self._tras_sintesis, {"revisar": "revisar", "respaldo": "respaldo", "fin": END})
         g.add_conditional_edges("revisar", self._tras_revisar, {"agente": "agente", "corregir": "corregir", "fin": END})

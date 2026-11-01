@@ -134,6 +134,13 @@ def test_modelo_sin_cuota_descansa_y_no_se_vuelve_a_intentar(armar):
     assert ag.cadena.estado()[0]["disponible"] is False
 
 
+def test_sin_llm_ni_evidencia_no_dice_que_no_encontro(armar, monkeypatch):
+    ag, _ = armar()
+    monkeypatch.setattr(ag.m, "responder", lambda q: {"respuesta": NO_ENCONTRE, "fuentes": [], "avisos": [], "modo": "LLM", "plan": {"herramienta": "texto"}})
+    r = ag.responder("hola")
+    assert r["modo"] == "sin_llm" and "no están disponibles" in r["respuesta"] and not r["respuesta"].startswith("No encontré")
+
+
 def test_sin_ningun_llm_responde_con_evidencia(armar):
     ag, _ = armar()
     r = ag.responder("¿Qué lagunas de Áncash tienen riesgo muy alto?")
@@ -184,6 +191,10 @@ def test_descansos():
     assert descanso_para(Exception("rate limit TPM. Please try again in 1m30.5s")) == 91.5
     assert descanso_para(Exception("tokens per day (TPD). Please try again in 2h5m")) == 3600   # tope de una hora
     assert descanso_para(Exception("tokens per day (TPD). Please try again in 5m")) == 301
+    # Gemini dice RESOURCE_EXHAUSTED tanto por minuto como por día: solo lo diario aparta al modelo una hora
+    assert descanso_para(Exception("429 RESOURCE_EXHAUSTED. You exceeded your current quota")) == 60
+    assert descanso_para(Exception("429 RESOURCE_EXHAUSTED. Please retry in 17.5s")) == 18.5
+    assert descanso_para(Exception("429 RESOURCE_EXHAUSTED quotaId GenerateRequestsPerDayPerProjectPerModel")) == 3600
 
 
 def test_espera_breve_si_todos_descansan_y_uno_vuelve_pronto():
@@ -199,7 +210,7 @@ def test_espera_breve_si_todos_descansan_y_uno_vuelve_pronto():
 
 def test_no_espera_si_el_descanso_es_largo():
     t, dormido = [0.0], []
-    llm = LLMGuionado([Exception("500 error")])
+    llm = LLMGuionado([Exception("tokens per day (TPD)")])
     c = CadenaModelos([("a", llm)], log=lambda m: None, reloj=lambda: t[0], dormir=dormido.append)
     for _ in range(2):
         try:

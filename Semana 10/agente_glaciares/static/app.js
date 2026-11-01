@@ -227,7 +227,7 @@ function mostrarRespuesta(burbuja, r) {
     });
     burbuja.append(b);
   }
-  const modos = { agente: "agente", graphrag: "motor GraphRAG (respaldo)", evidencia: "solo evidencia (sin LLM)", conversacion: "conversación", general: "conocimiento general, sin fuentes" };
+  const modos = { agente: "agente", graphrag: "motor GraphRAG (respaldo)", evidencia: "solo evidencia (sin LLM)", conversacion: "conversación", sin_llm: "modelos no disponibles", general: "conocimiento general, sin fuentes" };
   const meta = [modos[r.modo] || r.modo, r.modelo, `${r.segundos} s`];
   if (r.desde_cache) meta.push("desde caché");
   if (r.autocorregida) meta.push("corregida tras la verificación");

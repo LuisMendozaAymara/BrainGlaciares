@@ -200,7 +200,9 @@ Evaluación de las 18 preguntas contra el servicio en la nube, con Groq, Gemini 
 | Tiempo promedio por pregunta | 4.1 s |
 | Avisos de la verificación | 0 |
 | Preguntas simples con la respuesta esperada (`banco_simple.json`) | 36 / 36 en una ejecución en local, con Gemini y Neo4j (Groq había agotado su cuota diaria) |
-| Pruebas automáticas | 203: 181 con LLM simulado y 22 contra un Neo4j local |
+| Pruebas automáticas | 205: 183 con LLM simulado y 22 contra un Neo4j local |
+
+Las cuotas gratuitas limitan el uso. Groq da 200 000 tokens diarios por modelo y cada llamada usa unos 4 500, lo que alcanza para unas 35 preguntas al día entre sus dos modelos; después sigue Gemini, con su propio límite por minuto y por día. Una evaluación completa puede agotarlas: conviene no repetirla justo antes de una presentación.
 
 Pruebas de funcionamiento:
 
@@ -208,7 +210,7 @@ Pruebas de funcionamiento:
 |---|---|
 | Se apaga Neo4j con el servicio en marcha | Responde con la copia en Kùzu; la primera consulta tarda unos 6 s y luego regresa a Neo4j solo |
 | Groq agota su cuota a mitad de una pregunta | Gemini continúa la misma pregunta |
-| Ningún LLM responde | Muestra la evidencia encontrada, con su fuente, sin redactar |
+| Ningún LLM responde | Muestra la evidencia encontrada, con su fuente, sin redactar; si no hay evidencia, avisa que los modelos no están disponibles |
 | El servicio queda sin uso | Se apaga tras unos 6 minutos y no consume crédito; despierta en 26 s |
 | Un LLM escribe una consulta que modifica el grafo | Se rechaza y la sesión de Neo4j es de solo lectura |
 | Una pregunta contiene instrucciones para revelar datos internos | No las obedece |

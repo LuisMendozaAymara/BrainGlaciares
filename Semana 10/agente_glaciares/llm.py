@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage
 DESCANSO_ERROR = 30         # segundos tras un error cualquiera
 DESCANSO_MINUTO = 60        # límite por minuto
 DESCANSO_DIARIO = 3600      # límite diario
-ESPERA_BREVE = 15           # si todos descansan, segundos que vale la pena esperar al primero que vuelva
+ESPERA_BREVE = 60           # si todos descansan, segundos que vale la pena esperar al primero que vuelva
 
 
 class SinModelos(RuntimeError):
@@ -50,9 +50,9 @@ def descanso_para(error):
         if m.group(3):
             s += float(m.group(3)) / (1000 if m.group(4).lower() == "ms" else 1)
         return min(max(s, 1.0) + 1, DESCANSO_DIARIO)
-    if re.search(r"per day|TPD|RPD|daily|exhausted|billing|insufficient", t, re.I):
+    if re.search(r"per ?day|TPD|RPD|daily|billing|insufficient", t, re.I):
         return DESCANSO_DIARIO
-    if re.search(r"rate|429|quota|limit", t, re.I):
+    if re.search(r"rate|429|quota|limit|exhausted", t, re.I):
         return DESCANSO_MINUTO
     return DESCANSO_ERROR
 

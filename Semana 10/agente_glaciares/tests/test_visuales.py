@@ -236,6 +236,13 @@ def test_directa_junto_con_otra_herramienta_espera_sus_resultados(armar):
     assert r["citadas"] == [1] and r["modo"] == "agente" and "lee primero" in llm.recibidos[1][-1].content
 
 
+def test_directa_que_cita_evidencia_se_verifica_como_respuesta_normal(armar):
+    """Prueba real: Groq usó cifras_nacionales y cerró con responder_directo; quedaba marcada como fuera del tema."""
+    ag, _ = armar([pide(llamar("cifras_nacionales")), directa("ajena", "Hay 8466 lagunas [1].")])
+    r = ag.responder("cuantas lagunas hay en el peru")
+    assert r["modo"] == "agente" and r["citadas"] == [1] and not any("no proviene" in a for a in r["avisos"])
+
+
 def test_sin_llm_se_avisa_que_nadie_analizo_la_pregunta(armar):
     ag, _ = armar()
     r = ag.responder("capital de francia")
