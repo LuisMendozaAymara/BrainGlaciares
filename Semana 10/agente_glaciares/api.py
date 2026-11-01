@@ -33,8 +33,10 @@ from servicio import VERSION, Servicio
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logging.getLogger("neo4j").setLevel(logging.ERROR)   # sus avisos de reintento traen la dirección de la base
 registro = logging.getLogger("agente")
-CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
-       "base-uri 'none'; form-action 'none'")
+# Mosaicos del mapa: imagen satelital de Esri y relieve público Terrarium (Mapzen). El visor los pide desde un worker.
+MOSAICOS = "https://server.arcgisonline.com https://s3.amazonaws.com"
+CSP = (f"default-src 'self'; img-src 'self' data: blob: {MOSAICOS}; style-src 'self'; script-src 'self'; connect-src 'self' {MOSAICOS}; "
+       "worker-src blob:; child-src blob:; base-uri 'none'; form-action 'none'")
 ESPERA_TURNO = 20   # segundos que una pregunta espera turno antes de responder "ocupado"
 
 
@@ -151,6 +153,13 @@ def crear_app(cfg=None, servicio=None, cargar=True):
     @app.get("/api/info", tags=["estado"])
     def info():
         return servicio.info()
+
+    @app.get("/api/mapa", tags=["estado"])
+    def mapa():
+        """Lagunas con ubicación validada y la capa de lagunas en formación, sin gastar LLM."""
+        if servicio.estado != "listo":
+            raise HTTPException(503, "El agente está cargando; vuelve a intentar en un momento.", headers={"Retry-After": "20"})
+        return servicio.datos_mapa()
 
     @app.post("/api/preguntar", tags=["agente"])
     def preguntar(p: Pregunta, request: Request):

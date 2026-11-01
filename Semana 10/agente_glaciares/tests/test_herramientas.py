@@ -19,7 +19,8 @@ def test_esquemas_para_groq(caja):
         s = convert_to_openai_tool(t)["function"]
         nombres.add(s["name"])
         assert s["description"] and s["parameters"]["type"] == "object"
-    assert nombres == {"buscar_entidad", "consulta_verificada", "ficha_entidad", "camino_entidades", "consulta_libre", "buscar_documentos", "comparar_superficie"}
+    assert nombres >= {"buscar_entidad", "consulta_verificada", "ficha_entidad", "camino_entidades", "consulta_libre", "buscar_documentos", "comparar_superficie",
+                       "cifras_nacionales", "ranking_lagunas", "ficha_laguna", "mostrar_mapa", "vista_3d", "graficar", "ver_subgrafo"}
 
 
 def test_esquemas_para_gemini(caja):

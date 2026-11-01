@@ -8,6 +8,7 @@ from collections import OrderedDict, deque
 import graphrag_glaciares as GR
 import rag_ligero
 from agente import Agente
+from geo import lagunas_formacion
 from grafo_resiliente import GrafoResiliente, _sin_direcciones
 from herramientas import CajaHerramientas, MotorAgente
 from llm import CadenaModelos, eslabones_desde_config
@@ -81,6 +82,7 @@ class Servicio:
         self.grafo = self.indice = self.cadena = self.motor = self.caja = self.agente = None
         self.memoria = Memoria(cfg.memoria_turnos, cfg.memoria_sesiones, cfg.memoria_ttl)
         self.cache = CacheRespuestas(cfg.cache_respuestas, cfg.memoria_ttl)
+        self._mapa = None
         self.iniciado = time.time()
         self.preguntas = 0
 
@@ -136,6 +138,15 @@ class Servicio:
         for ev in self.en_pasos(pregunta, sesion):
             ultimo = ev
         return ultimo["resultado"]
+
+    def datos_mapa(self):
+        if self._mapa is None:
+            ubicaciones = list(self.caja.geo.por_k.values())
+            info = self.caja._nivel_y_departamentos({u["k"] for u in ubicaciones})
+            self._mapa = {"lagunas": [self.caja._punto(u, info.get(u["k"])) for u in ubicaciones],
+                          "formacion": [{k: f[k] for k in ("lat", "lon", "altitud", "tipo", "cordillera", "departamento", "pagina")} for f in lagunas_formacion()],
+                          "fuente_formacion": "INAIGEM, 2025: Formación de lagunas por pérdida glaciar en los Andes peruanos (20.500.12748/649)"}
+        return self._mapa
 
     def info(self):
         d = {"estado": self.estado, "detalle": self.detalle, "version": VERSION, "activo_hace_s": int(time.time() - self.iniciado),

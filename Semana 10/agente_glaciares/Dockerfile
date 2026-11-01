@@ -34,6 +34,7 @@ RUN pip install pytest httpx
 FROM base AS produccion
 COPY *.py ./
 COPY static ./static
+COPY geo ./geo
 COPY datos ./datos
 # La copia del grafo queda lista: si Neo4j está en pausa al despertar, el servicio no pierde 2 minutos construyéndola
 RUN python -c "from grafo_resiliente import construir_base_previa as c; c('datos')"

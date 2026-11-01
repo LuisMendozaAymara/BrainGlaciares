@@ -16,7 +16,7 @@ import sys
 import time
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-COLUMNAS = ["id", "tipo", "pregunta", "responde", "modo", "modelo", "autocorregida", "herramientas", "n_citas", "citas_grafo",
+COLUMNAS = ["id", "tipo", "pregunta", "cumple", "responde", "modo", "modelo", "autocorregida", "herramientas", "n_citas", "citas_grafo",
             "citas_texto", "docs_citados", "instituciones_citadas", "avisos", "segundos", "respuesta"]
 
 
@@ -51,8 +51,24 @@ def cliente_local():
     return srv.responder
 
 
+def cumple(b, r):
+    """Con un banco que trae lo esperado ("debe", "no_debe", "visual", "modo"), dice si la respuesta lo cumple."""
+    if not any(k in b for k in ("debe", "no_debe", "visual", "modo")):
+        return ""
+    ok = True
+    if "debe" in b:
+        ok &= bool(re.search(b["debe"], r["respuesta"]))
+    if "no_debe" in b:
+        ok &= not re.search(b["no_debe"], r["respuesta"])
+    if "modo" in b:
+        ok &= r["modo"] == b["modo"]
+    if "visual" in b:
+        ok &= any(v.get("tipo") == b["visual"] for v in r.get("visualizaciones", []))
+    return "sí" if ok else "NO"
+
+
 def fila(b, r):
-    return {"id": b["id"], "tipo": b.get("tipo", ""), "pregunta": b["pregunta"],
+    return {"id": b["id"], "tipo": b.get("tipo", ""), "pregunta": b["pregunta"], "cumple": cumple(b, r),
             "responde": r["modo"] in ("agente", "graphrag") and not r["respuesta"].startswith("No encontré"),
             "modo": r["modo"], "modelo": r.get("modelo"), "autocorregida": r.get("autocorregida", False),
             "herramientas": " > ".join(r.get("herramientas", [])), "n_citas": r["n_citas"], "citas_grafo": r["n_citas_grafo"],
@@ -100,7 +116,7 @@ def main():
         filas.append(fila(b, r))
         jsonl.append(ragas(b, r))
         f = filas[-1]
-        print(f"{b['id']:>4} · {f['herramientas'] or '—':<45} · {'ok' if f['responde'] else 'no'} · citas {f['n_citas']} · {f['segundos']} s · {f['modelo'] or f['modo']}", flush=True)
+        print(f"{b['id']:>4} · {('cumple: ' + f['cumple'] + ' · ') if f['cumple'] else ''}{f['herramientas'] or '—':<45} · {'ok' if f['responde'] else 'no'} · citas {f['n_citas']} · {f['segundos']} s · {f['modelo'] or f['modo']}", flush=True)
         if a.pausa and i < len(banco) - 1 and not r.get("desde_cache"):
             time.sleep(a.pausa)
     with open(os.path.join(a.salida, "respuestas_agente.csv"), "w", newline="", encoding="utf-8") as h:

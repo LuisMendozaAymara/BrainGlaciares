@@ -17,8 +17,14 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 import graphrag_glaciares as GR
+from geo import RUIDO_LAGUNAS, Ubicaciones, cifras_nacionales as leer_cifras, riesgo_por_departamento
 from grafo_resiliente import _sin_direcciones
 
+METRICAS = {"volumen": ("tieneVolumen", "m³"), "profundidad": ("tieneProfundidadMax", "m")}
+# El área del grafo mezcla cuencas con espejos de agua (Palcacocha figura con 249 km²) y la altitud incluye nevados: no sirven para ordenar lagunas.
+SIN_RANKING = {"area": "el área del grafo mezcla cuencas y espejos de agua", "altitud": "la altitud del grafo incluye nevados y glaciares"}
+RELACIONES_FICHA = ("tieneNivelRiesgo", "amenazaA", "alimentadaPor", "tieneObraSeguridad", "estadoObra", "ocurrioEn", "monitoreadoCon",
+                    "tieneVolumen", "tieneAltitud", "ubicadaEn")
 NIVELES = {"muy alto": "Muy alto", "alto": "Alto", "medio": "Medio", "bajo": "Bajo"}
 ANTESALA = re.compile(r"^(?:(laguna|lagunas|glaciar|nevado|cordillera|subcuenca|microcuenca|cuenca|quebrada|rio|bofedal|ciudad|"
                       r"distrito|provincia|departamento|localidad|poblado|centro poblado)\s+)(?:(?:de|del|de la|la|el)\s+)?")
@@ -77,6 +83,7 @@ class Contexto:
     fuentes: list = field(default_factory=list)
     bloques: list = field(default_factory=list)
     pasos: list = field(default_factory=list)
+    visuales: list = field(default_factory=list)   # mapas, gráficos y fichas que la página dibuja junto a la respuesta
     llamadas: dict = field(default_factory=dict)
     _vistos: dict = field(default_factory=dict)
 
@@ -142,6 +149,32 @@ class ArgsDocumentos(BaseModel):
     anio_max: Optional[int] = Field(default=None, description="Solo documentos publicados hasta este año.")
 
 
+class ArgsCifras(BaseModel):
+    cordillera: Optional[str] = Field(default=None, description="Para ver además el inventario de una cordillera, por ejemplo 'blanca'.")
+
+
+class ArgsRanking(BaseModel):
+    metrica: str = Field(description="volumen (para las más grandes) o profundidad.")
+    top: int = Field(default=20, description="Cuántas lagunas pidió la persona (máximo 30).")
+    departamento: Optional[str] = Field(default=None, description="Solo este departamento.")
+
+
+class ArgsNombre(BaseModel):
+    nombre: str = Field(description="Nombre de la laguna o entidad, por ejemplo 'Palcacocha'.")
+
+
+class ArgsMapa(BaseModel):
+    nombres: Optional[List[str]] = Field(default=None, description="Lagunas concretas. Sin esto, todas las que cumplan los filtros.")
+    departamento: Optional[str] = Field(default=None, description="Solo este departamento.")
+    solo_en_riesgo: bool = Field(default=False, description="Solo lagunas con riesgo alto o muy alto en el grafo.")
+    titulo: Optional[str] = Field(default=None, description="Título breve del mapa.")
+
+
+class ArgsGrafico(BaseModel):
+    tema: str = Field(description="superficie_cordillera, lagunas_por_cordillera, riesgo_por_departamento o eventos_por_decada.")
+    cordillera: Optional[str] = Field(default=None, description="Para superficie_cordillera, por ejemplo 'blanca'.")
+
+
 class ArgsSuperficie(BaseModel):
     cordillera: str = Field(description="Cordillera sin la palabra 'cordillera', por ejemplo 'blanca'.")
     anio_1: int = Field(default=2018, description="Año inicial.")
@@ -152,8 +185,11 @@ class ArgsSuperficie(BaseModel):
 # Herramientas
 # ======================================================================
 class CajaHerramientas:
-    def __init__(self, motor):
+    def __init__(self, motor, geo=None):
         self.m = motor
+        self.geo = geo or Ubicaciones()
+        self.cifras = leer_cifras()
+        self.riesgo = riesgo_por_departamento()
         self._nombres_k = list(motor.enl.por_k)
         catalogo = "\n".join(f"- {k}: {v}" for k, v in GR.ROTULOS.items())
         especiales = [
@@ -164,17 +200,33 @@ class CajaHerramientas:
              "Ejecuta una consulta Cypher ya probada sobre todo el grafo. Es la primera opción para listas, conteos, negaciones y "
              "cadenas de varios saltos, si coincide con los filtros de la pregunta. Consultas disponibles:\n" + catalogo),
             ("ficha_entidad", self.ficha_entidad, ArgsFicha,
-             "Devuelve lo que el grafo sabe de entidades concretas (lagunas, glaciares, poblados…), con documento y página."),
+             "Hechos sueltos de entidades concretas (glaciares, poblados, lagunas), con documento y página. Si piden una ficha o informe de una laguna, usa ficha_laguna."),
             ("camino_entidades", self.camino_entidades, ArgsCamino,
              "Encuentra la cadena de relaciones más corta que conecta dos entidades. Úsala cuando preguntan cómo se relacionan."),
             ("consulta_libre", self.consulta_libre, ArgsConsultaLibre,
              "Escribe y ejecuta una consulta Cypher nueva, validada y de solo lectura. Úsala solo si ninguna consulta verificada "
              "cubre los filtros de la pregunta."),
             ("buscar_documentos", self.buscar_documentos, ArgsDocumentos,
-             "Busca fragmentos en los 398 documentos del corpus (semántica y palabras clave). Úsala para explicar causas, "
+             "Busca fragmentos en los documentos del corpus (semántica y palabras clave). Úsala para explicar causas, "
              "contexto, definiciones o hechos históricos, y para complementar los hechos del grafo."),
             ("comparar_superficie", self.comparar_superficie, ArgsSuperficie,
              "Calcula el cambio de la superficie glaciar de una cordillera entre dos inventarios."),
+            ("cifras_nacionales", self.cifras_nacionales, ArgsCifras,
+             "Totales oficiales del Perú con su fuente: cuántas lagunas y glaciares hay, cuántas lagunas tienen riesgo, cuál es la de mayor "
+             "riesgo. Úsala SIEMPRE para '¿cuántas hay en el Perú?'; contar nodos del grafo no da el total real."),
+            ("ranking_lagunas", self.ranking_lagunas, ArgsRanking,
+             "Las lagunas más grandes (por volumen) o más profundas registradas, con su fuente; también dibuja el gráfico."),
+            ("ficha_laguna", self.ficha_laguna, ArgsNombre,
+             "Informe de riesgo de una laguna: nivel, obras y su estado, poblados, glaciares, eventos, monitoreo y medidas. Úsala para "
+             "'háblame de', 'situación de' o 'qué se sabe de' una laguna."),
+            ("mostrar_mapa", self.mostrar_mapa, ArgsMapa,
+             "Muestra lagunas en un mapa. Úsala si piden un mapa, dónde está o dónde se ubican."),
+            ("vista_3d", self.vista_3d, ArgsNombre,
+             "Muestra una laguna sobre el relieve en 3D. Úsala si piden 3D, relieve o terreno."),
+            ("graficar", self.graficar, ArgsGrafico,
+             "Dibuja un gráfico con datos con fuente. Úsala si piden un gráfico, una comparación o una evolución en el tiempo."),
+            ("ver_subgrafo", self.ver_subgrafo, ArgsNombre,
+             "Dibuja las conexiones de una entidad en el grafo. Úsala si piden ver sus relaciones o el grafo."),
         ]
         self.herramientas = [StructuredTool.from_function(func=f, name=n, description=d, args_schema=a)
                              for n, f, a, d in especiales]
@@ -337,7 +389,11 @@ class CajaHerramientas:
             raise ValueError(f"no se pudo escribir una consulta válida: {plan['error_cypher']}")
         ctx = _contexto.get()
         ctx.pasos.append({"tipo": "cypher", "cypher": plan.get("cypher"), "intentos": plan.get("intentos_cypher")})
-        return self._a_evidencia(d, plan, "Consulta nueva (validada, solo lectura)")
+        aviso = ""
+        if re.search(r"\bcount\s*\(", plan.get("cypher") or "", re.I):
+            aviso = ("AVISO: este conteo solo refleja lo que mencionan los documentos en el grafo, no el total real. "
+                     "No lo presentes como cuántas existen; para totales del Perú usa cifras_nacionales.")
+        return self._a_evidencia(d, plan, "Consulta nueva (validada, solo lectura)", aviso)
 
     def buscar_documentos(self, consulta, fuente=None, anio_min=None, anio_max=None):
         indice = self.m.indice
@@ -381,3 +437,247 @@ class CajaHerramientas:
         referencia = f"{x.fuente_1} y {x.fuente_2}"
         n = ctx.registrar("grafo", texto, referencia, doc)
         return ctx.bloques[n - 1]
+
+    # ---------- datos oficiales y rankings ----------
+    def cifras_nacionales(self, cordillera=None):
+        ctx = _contexto.get()
+        self.m.titulos({c["documento"] for c in self.cifras})
+        lineas = ["Cifras oficiales de los documentos del INAIGEM:"]
+        for c in self.cifras:
+            ref = self.m._ref_doc(c["documento"], c["pagina"])
+            n = ctx.registrar("grafo", f"{c['indicador']}: {c['texto']}", ref, c["documento"], c["pagina"], c["texto"])
+            lineas.append(ctx.bloques[n - 1])
+        if cordillera and self.m.g.cypher_ok:
+            k = GR.norm(cordillera).replace("cordillera ", "")
+            d = self.m.g.q("""MATCH (i:Inventario)-[:INVENTARIO_DE]->(c:Cordillera {k: $cordillera})
+MATCH (i)-[:TIENE_MEDICION]->(m:Medicion)
+WHERE m.propiedad IN ['registraLagunas', 'registraLagunasNuevas', 'registraGlaciares', 'registraSuperficieGlaciar']
+RETURN i.anio AS anio, m.propiedad AS dato, m.texto AS valor, m.documento AS documento, m.pagina AS pagina, m.evidencia AS evidencia
+ORDER BY anio DESC""", cordillera=k)
+            if len(d):
+                d = d[d.anio == d.anio.max()]
+                lineas.append(self._a_evidencia(d, {"herramienta": "cifras"}, f"Inventario de la cordillera {cordillera}"))
+        return "\n".join(lineas)
+
+    def ranking_lagunas(self, metrica, top=20, departamento=None):
+        if metrica in SIN_RANKING:
+            return f"No hay un ranking confiable por {metrica}: {SIN_RANKING[metrica]}. Dilo con claridad y ofrece el ranking por volumen."
+        if metrica not in METRICAS:
+            raise ValueError(f"métrica desconocida. Opciones: {', '.join(METRICAS)}")
+        if not self.m.g.cypher_ok:
+            raise RuntimeError("los rankings no están disponibles ahora; usa buscar_documentos")
+        ctx = _contexto.get()
+        propiedad, unidad = METRICAS[metrica]
+        d = self.m.g.q("""MATCH (l:Laguna)-[:TIENE_MEDICION]->(m:Medicion)
+WHERE m.propiedad = $propiedad AND m.valor IS NOT NULL
+RETURN l.nombre AS laguna, l.k AS k, l.departamentos AS departamentos, m.valor AS valor, m.texto AS texto,
+       m.documento AS documento, m.pagina AS pagina, m.evidencia AS evidencia""", propiedad=propiedad)
+        d = d[d.k.map(nombre_de_laguna_valido) & d.k.isin(self.m.enl.por_k)]
+        if departamento:
+            dep = GR.DEPARTAMENTOS_N.get(GR.norm(departamento))
+            if dep is None:
+                raise ValueError(f"'{departamento}' no es un departamento del Perú")
+            dep = "Áncash" if GR.norm(dep) == "ancash" else dep
+            d = d[d.departamentos.map(lambda v: dep in _lista(v))]
+        if not len(d):
+            return f"El grafo no registra {metrica} de lagunas con esos filtros."
+        d = d.assign(valor=[valor_corregido(v, t, metrica) for v, t in zip(d.valor, d.texto)])
+        d = d.sort_values("valor", ascending=False).drop_duplicates("k")
+        pedidas = max(1, min(int(top), 30))
+        mejores = d.head(pedidas)
+        self.m.titulos(set(mejores.documento.dropna()))
+        lineas = [f"Ranking de {len(mejores)} lagunas por {metrica}, con los valores que registran los documentos"
+                  + (f"; solo hay {len(mejores)} de las {pedidas} pedidas: dilo." if len(mejores) < pedidas else ".")
+                  + " No es un ranking oficial: indícalo y enumera todas."]
+        for r in mejores.itertuples():
+            texto = f"{r.laguna}: {_cifra(r.valor)} {unidad}"
+            n = ctx.registrar("grafo", texto, self.m._ref_doc(r.documento, r.pagina), r.documento, r.pagina)
+            lineas.append(f"[{n}] {texto} · {self.m._ref_doc(r.documento, r.pagina)}")
+        ctx.visuales.append({"tipo": "barras", "titulo": f"Lagunas con mayor {metrica}" + (f" en {departamento}" if departamento else ""), "unidad": unidad,
+                             "etiquetas": mejores.laguna.head(15).tolist(), "valores": [float(v) for v in mejores.valor.head(15)],
+                             "fuente": "Valores registrados en los documentos; no es un ranking oficial."})
+        return "\n".join(lineas)
+
+    # ---------- ficha de una laguna ----------
+    def _nivel_y_departamentos(self, ks):
+        if not ks or not self.m.g.cypher_ok:
+            return {}
+        d = self.m.g.q("MATCH (l:Laguna) WHERE l.k IN $ks RETURN l.k AS k, l.nivel_max AS nivel, l.departamentos AS departamentos", ks=list(ks))
+        return {r["k"]: r for r in d.to_dict("records")}
+
+    def _punto(self, u, info=None):
+        info = info or {}
+        doc = u.get("documento")
+        self.m.titulos([doc] if doc else [])
+        nivel = info.get("nivel")
+        return {"nombre": u["nombre"], "k": u["k"], "lat": float(u["lat"]), "lon": float(u["lon"]), "nivel": None if GR._vacio(nivel) else nivel,
+                "departamentos": _lista(info.get("departamentos")),
+                "altitud": None if GR._vacio(u.get("altitud_terreno")) else int(u["altitud_terreno"]), "verificada": bool(u.get("verificada")),
+                "nota": "" if GR._vacio(u.get("nota")) else str(u["nota"]), "referencia": self.m._ref_doc(doc, u.get("pagina")) if doc else "",
+                "url": _url_documento(doc)}
+
+    def ficha_laguna(self, nombre):
+        ctx = _contexto.get()
+        fila = self._resolver(nombre)
+        if fila is None:
+            return f"No encontré '{nombre}' en el grafo. Usa buscar_entidad para ver nombres parecidos."
+        d = self.m.g.ficha([fila.id], 300)
+        if d is None or not len(d):
+            return f"El grafo no tiene hechos de {fila.nombre}."
+        d = d[d.relacion.isin(RELACIONES_FICHA)].copy()
+        d["_orden"] = d.relacion.map({r: i for i, r in enumerate(RELACIONES_FICHA)})
+        grupos = {r: list(dict.fromkeys(_medida(c, r) for c in g.con.dropna())) for r, g in d.groupby("relacion")}
+        d = d.sort_values(["_orden", "n_docs"], ascending=[True, False]).groupby("relacion", sort=False).head(4).head(20)
+        lineas = [self._a_evidencia(d.drop(columns="_orden"), {"herramienta": "ficha"}, f"Ficha de {fila.nombre}")]
+        info = self._nivel_y_departamentos([fila.k]).get(fila.k, {})
+        u = self.geo.de(fila.nombre)
+        ctx.visuales.append({"tipo": "ficha", "nombre": fila.nombre, "entidad": fila.tipo, "nivel": None if GR._vacio(info.get("nivel")) else info["nivel"],
+                             "departamentos": _lista(info.get("departamentos")), "obras": grupos.get("tieneObraSeguridad", [])[:8],
+                             "estados": grupos.get("estadoObra", [])[:6], "poblados": grupos.get("amenazaA", [])[:10], "glaciares": grupos.get("alimentadaPor", [])[:8],
+                             "eventos": grupos.get("ocurrioEn", [])[:8], "monitoreo": grupos.get("monitoreadoCon", [])[:8], "volumen": grupos.get("tieneVolumen", [])[:3],
+                             "altitud": grupos.get("tieneAltitud", [])[:2], "punto": self._punto(u, info) if u else None})
+        if GR._vacio(info.get("nivel")) and fila.tipo == "Laguna":
+            lineas.append("El grafo no registra su nivel de riesgo: búscalo con buscar_documentos antes de afirmar algo.")
+        return "\n".join(lineas)
+
+    # ---------- mapa y relieve ----------
+    def mostrar_mapa(self, nombres=None, departamento=None, solo_en_riesgo=False, titulo=None):
+        ctx = _contexto.get()
+        sin_ubicacion = []
+        if nombres:
+            ubicaciones = []
+            for n in nombres[:40]:
+                u = self.geo.de(n)
+                if u is None:
+                    fila = self._resolver(n)
+                    u = self.geo.por_k.get(fila.k) if fila is not None else None
+                if u:
+                    ubicaciones.append(u)
+                else:
+                    sin_ubicacion.append(n)
+        else:
+            ubicaciones = list(self.geo.por_k.values())
+        info = self._nivel_y_departamentos({u["k"] for u in ubicaciones})
+        puntos = [self._punto(u, info.get(u["k"])) for u in ubicaciones]
+        if departamento:
+            dep = GR.norm(departamento)
+            puntos = [p for p in puntos if dep in {GR.norm(x) for x in p["departamentos"]}]
+        if solo_en_riesgo:
+            puntos = [p for p in puntos if p["nivel"] in ("Muy alto", "Alto")]
+        if not puntos:
+            return "Ninguna laguna con esos filtros tiene una ubicación verificada en los documentos. " + (f"Sin ubicación: {', '.join(sin_ubicacion)}." if sin_ubicacion else "")
+        ctx.visuales.append({"tipo": "mapa", "titulo": titulo or "Ubicación de lagunas", "puntos": puntos, "sin_ubicacion": sin_ubicacion, "tres_d": False})
+        extra = f" No tienen ubicación verificada: {', '.join(sin_ubicacion)}; dilo." if sin_ubicacion else ""
+        return (f"Mapa mostrado en pantalla con {len(puntos)} lagunas: {', '.join(p['nombre'] for p in puntos[:12])}.{extra} "
+                "Las coordenadas vienen de los documentos y se validaron con el relieve. Responde en una o dos frases sin repetir coordenadas.")
+
+    def vista_3d(self, nombre):
+        ctx = _contexto.get()
+        fila = self._resolver(nombre)
+        u = self.geo.de(nombre) or (self.geo.por_k.get(fila.k) if fila is not None else None)
+        if u is None:
+            return f"'{nombre}' no tiene una ubicación verificada en los documentos, así que no puedo mostrarla en 3D. Dilo con claridad."
+        p = self._punto(u, self._nivel_y_departamentos([u["k"]]).get(u["k"]))
+        ctx.visuales.append({"tipo": "mapa", "titulo": f"{p['nombre']} sobre el relieve", "puntos": [p], "sin_ubicacion": [], "tres_d": True})
+        altitud = f"; el relieve marca {p['altitud']} m s. n. m. en ese punto" if p["altitud"] else ""
+        return f"Vista 3D de {p['nombre']} mostrada en pantalla{altitud}. Es el relieve real, no una simulación de desborde: dilo si preguntan por eso. Responde en una o dos frases."
+
+    # ---------- gráficos ----------
+    def graficar(self, tema, cordillera=None):
+        ctx = _contexto.get()
+        if tema == "riesgo_por_departamento" and len(self.riesgo):
+            serie = {r.departamento: int(r.lagunas) for r in self.riesgo.itertuples()}
+            titulo, unidad, tipo, doc, pag = "Lagunas con riesgo de desborde por departamento", "lagunas", "barras", self.riesgo.documento.iloc[0], int(self.riesgo.pagina.iloc[0])
+        elif tema == "lagunas_por_cordillera" and self.m.g.cypher_ok:
+            d = self.m.g.q("""MATCH (i:Inventario)-[:TIENE_MEDICION]->(m:Medicion)
+WHERE i.anio = 2023 AND m.propiedad = 'registraLagunas' AND m.valor IS NOT NULL
+RETURN i.nombre AS inventario, m.valor AS lagunas, m.documento AS documento, m.pagina AS pagina""")
+            d = d[~d.inventario.str.contains("Nacional")].sort_values("lagunas", ascending=False).drop_duplicates("inventario")
+            serie = {re.sub(r"^Inventario | 2023$", "", r.inventario): float(r.lagunas) for r in d.itertuples()}
+            titulo, unidad, tipo, doc, pag = "Lagunas de origen glaciar por cordillera (inventario 2023)", "lagunas", "barras", str(d.documento.iloc[0]), d.pagina.iloc[0]
+        elif tema == "superficie_cordillera" and self.m.g.cypher_ok:
+            if not cordillera:
+                raise ValueError("indica la cordillera")
+            k = GR.norm(cordillera).replace("cordillera ", "")
+            d = self.m.g.q(GR.CONSULTAS["P9"]["cypher"], cordillera=k).dropna(subset=["anio", "km2"])
+            if not len(d):
+                return f"El grafo no tiene superficies de la cordillera '{cordillera}'."
+            mediana = d.km2.median()
+            d = d[(d.km2 >= 0.4 * mediana) & (d.km2 <= 2.5 * mediana)].sort_values(["anio", "confianza"], ascending=[True, False]).drop_duplicates("anio")
+            serie = {str(int(r.anio)): float(r.km2) for r in d.itertuples()}
+            titulo, unidad, tipo, doc, pag = f"Superficie glaciar de la cordillera {k.title()}", "km²", "linea", str(d.documento.iloc[-1]), d.pagina.iloc[-1]
+        elif tema == "eventos_por_decada" and self.m.g.cypher_ok:
+            d = self.m.g.q("MATCH (e:Evento) WHERE e.anio IS NOT NULL RETURN e.anio AS anio").dropna()
+            d = d[(d.anio >= 1700) & (d.anio <= 2030)]
+            decadas = (d.anio.astype(int) // 10 * 10).value_counts().sort_index()
+            serie = {f"{a}s": int(v) for a, v in decadas.items()}
+            titulo, unidad, tipo, doc, pag = "Eventos registrados en el grafo por década", "eventos", "barras", None, None
+        else:
+            raise ValueError("tema desconocido o no disponible. Opciones: superficie_cordillera, lagunas_por_cordillera, riesgo_por_departamento, eventos_por_decada")
+        if doc:
+            self.m.titulos([doc])
+        ref = self.m._ref_doc(doc, pag) if doc else "Grafo de conocimiento (eventos mencionados en los documentos)"
+        texto = titulo + ": " + "; ".join(f"{a}: {_cifra(v)}" for a, v in serie.items())
+        n = ctx.registrar("grafo", texto, ref, doc, pag)
+        ctx.visuales.append({"tipo": "linea" if tipo == "linea" else "barras", "titulo": titulo, "unidad": unidad, "etiquetas": list(serie),
+                             "valores": [float(v) for v in serie.values()], "fuente": ref})
+        return f"Gráfico mostrado en pantalla. Datos:\n{ctx.bloques[n - 1]}\nComenta lo principal en dos o tres frases, citando con [{n}]."
+
+    def ver_subgrafo(self, nombre):
+        ctx = _contexto.get()
+        fila = self._resolver(nombre)
+        if fila is None:
+            return f"No encontré '{nombre}' en el grafo. Usa buscar_entidad para ver nombres parecidos."
+        d = self.m.g.ficha([fila.id], 60)
+        d = d[~d.tipo_con.isin(["Medicion", "Documento"])].sort_values("n_docs", ascending=False).drop_duplicates(["relacion", "con"]).head(24)
+        if not len(d):
+            return f"El grafo no registra conexiones de {fila.nombre}."
+        self.m.titulos(set(d.documento.dropna()))
+        aristas = [{"a": r.con, "tipo": r.tipo_con, "relacion": r.relacion, "sale": r.sentido == "sale",
+                    "fuente": self.m._ref_doc(r.documento, r.pagina) if not GR._vacio(r.documento) else ""} for r in d.itertuples()]
+        ctx.visuales.append({"tipo": "subgrafo", "centro": fila.nombre, "centro_tipo": fila.tipo, "aristas": aristas})
+        return self._a_evidencia(d.head(8), {"herramienta": "ficha"}, f"Subgrafo de {fila.nombre} mostrado en pantalla ({len(aristas)} conexiones). Principales")
+
+    # ---------- para la respuesta ----------
+    def puntos_en_texto(self, texto):
+        """Lagunas con ubicación que la respuesta menciona: la página ofrece verlas en el mapa sin otra llamada al LLM."""
+        t = GR.norm(texto)
+        presentes = [u for k, u in self.geo.por_k.items() if re.search(rf"\b{re.escape(k)}\b", t)]
+        if not presentes:
+            return []
+        info = self._nivel_y_departamentos({u["k"] for u in presentes})
+        return [self._punto(u, info.get(u["k"])) for u in presentes[:30]]
+
+
+def nombre_de_laguna_valido(k):
+    """Descarta el ruido de la extracción que quedó como laguna: "513", "1532 lagunas", "outburst"."""
+    k = str(k)
+    return len(k) >= 4 and not k[0].isdigit() and "lagunas" not in k and k not in RUIDO_LAGUNAS
+
+
+def valor_corregido(valor, texto, metrica):
+    """"1.269 Hm3" se extrajo como 1269 millones de m³: el decimal se leyó como separador de miles (1000 veces más)."""
+    if metrica == "volumen" and valor and valor >= 1e9:
+        m = re.match(r"\s*(\d+)[.,](\d{3})\s*(hm|mmc|mm3|millones)", str(texto), re.I)
+        if m:
+            return (int(m.group(1)) + int(m.group(2)) / 1000) * 1e6
+    return valor
+
+
+def _cifra(v):
+    v = float(v)
+    return f"{v:,.0f}".replace(",", " ") if abs(v) >= 1000 or v == int(v) else f"{v:.2f}"
+
+
+def _medida(con, relacion):
+    return re.sub(r"^" + re.escape(relacion) + r"\s+", "", str(con))
+
+
+def _lista(v):
+    if isinstance(v, (list, tuple)):
+        return list(v)
+    return list(v) if hasattr(v, "tolist") else []
+
+
+def _url_documento(doc):
+    return f"https://hdl.handle.net/{doc}" if doc and re.match(r"^\d+(?:\.\d+)+/", str(doc)) else None

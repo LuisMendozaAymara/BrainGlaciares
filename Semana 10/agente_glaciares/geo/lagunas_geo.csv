@@ -1,0 +1,29 @@
+k,nombre,lat,lon,altitud_documento,altitud_terreno,diferencia_m,n_documentos,documento,pagina,fuente,anio,verificada,nota
+paron,Parón,-8.99255,-77.66856,4190.0,4163,28.0,1,20.500.12748/608,52,,,True,Coordenadas de la ficha de la laguna
+tullparaju,Tullparaju,-9.41925,-77.34082,4283.0,4278,5.0,1,20.500.12748/608,49,,,True,Coordenadas de la ficha de la laguna
+upiscocha,Upiscocha,-13.77684,-71.2526,4574.0,4669,95.0,1,20.500.12748/608,43,,,True,Coordenadas de la ficha de la laguna
+gangrajanca,Gangrajanca,-10.26636,-76.87673,,4218,,1,20.500.12748/608,58,,,True,Coordenadas de la ficha de la laguna; su altitud difiere del relieve
+palcacocha,Palcacocha,-9.40258,-77.38528,4562.0,4586,24.0,1,20.500.12748/472,111,,,True,"Estación junto a la laguna: la coordenada de su ficha (608, p. 46) cae en Huaraz y no coincide con el relieve"
+taullicocha,Taullicocha,-8.90726,-77.58862,4430.0,4431,1.0,1,20.500.12748/253,91,,,True,Tabla de lagunas
+artizon,Artizón,-8.93498,-77.61848,,4680,,1,20.500.12748/253,91,,,True,Tabla de lagunas
+llaca,Llaca,-9.43374,-77.44262,4472.0,4475,3.0,6,20.500.12543/3597,19,ANA,2019,False,
+piuray,Piuray,-13.41944,-72.01694,3850.0,3740,110.0,2,20.500.12748/426,28,INAIGEM,2022,False,
+jatuncocha,Jatuncocha,-8.92627,-77.64712,3870.0,3885,15.0,3,20.500.12748/253,91,INAIGEM,2018,False,
+carhuacocha,Carhuacocha,-8.95963,-77.95704,4800.0,4809,9.0,1,20.500.12543/5801,33,ANA,2024,False,
+lazo huntay,Lazo Huntay,-11.9248,-75.06097,4646.0,4645,1.0,2,20.500.12748/608,63,INAIGEM,2024,False,
+lago junin,Lago Junín,-12.43801,-75.23003,,4004,,2,20.500.12748/57,145,INAIGEM,2018,False,
+asnacocha,Asnacocha,-14.09492,-71.48012,3771.0,3768,3.0,1,20.500.12543/5678,149,ANA,2023,False,
+ticllacocha,Ticllacocha,-13.35867,-72.36512,5000.0,4999,1.0,1,20.500.12543/3646,69,ANA,2014,False,
+ananta,Ananta,-13.9319,-70.80031,4991.0,4997,6.0,1,20.500.12543/3646,131,ANA,2014,False,
+matarcocha,Matarcocha,-9.8574,-77.49072,4474.0,4330,144.0,1,20.500.12543/5801,33,ANA,2024,False,
+canchiscocha,Canchiscocha,-9.25168,-77.82079,4393.0,4400,7.0,1,20.500.12543/5801,33,ANA,2024,False,
+tocacocha,Tocacocha,-9.8065,-77.52243,4335.0,4326,9.0,1,20.500.12543/5801,33,ANA,2024,False,
+manyacocha,Manyacocha,-8.92086,-77.95933,4401.0,4381,20.0,1,20.500.12543/5801,33,ANA,2024,False,
+agococha,Agococha,-9.00344,-77.93108,4460.0,4473,13.0,1,20.500.12543/5801,33,ANA,2024,False,
+jarancocha,Jarancocha,-9.72884,-77.55095,4312.0,4316,4.0,1,20.500.12543/5801,33,ANA,2024,False,
+quiullacocha,Quiullacocha,-11.9045,-76.06145,5030.0,5051,21.0,1,20.500.12543/3597,27,ANA,2019,False,
+quiulacocha 2,Quiulacocha 2,-10.50355,-76.01132,5024.0,4954,70.0,1,20.500.12543/3646,1,ANA,2014,False,
+quiulacocha 3,Quiulacocha 3,-10.50546,-76.00803,4945.0,4864,81.0,1,20.500.12543/3646,1,ANA,2014,False,
+quiulacocha 4,Quiulacocha 4,-10.48445,-75.98539,5023.0,4928,95.0,1,20.500.12543/3646,1,ANA,2014,False,
+huataycucho,Huataycucho,-15.72321,-71.88418,5789.0,5754,35.0,1,20.500.12543/3646,38,ANA,2014,False,
+tararhua,Tararhua,-9.57238,-77.31224,5075.0,5071,4.0,1,20.500.12543/490,58,ANA,2012,False,
